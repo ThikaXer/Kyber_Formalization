@@ -1,8 +1,193 @@
 theory Kyber
-imports Main "HOL-Computational_Algebra.Polynomial"
- "Berlekamp_Zassenhaus.Poly_Mod" 
+imports Main "HOL-Computational_Algebra.Computational_Algebra" "HOL-Computational_Algebra.Polynomial_Factorial"
+ "Berlekamp_Zassenhaus.Poly_Mod" "Berlekamp_Zassenhaus.Poly_Mod_Finite_Field"
 
 begin
+
+
+(* this is the polynomial "X ^ n + 1" *)
+definition gf_poly :: "'n itself \<Rightarrow> 'q :: prime_card mod_ring poly" where
+  "gf_poly _ = Polynomial.monom 1 CARD('n) + 1"
+
+
+(*
+
+(* this type corresponds to \<int>q[X] / (X^n + 1) *)
+
+typedef ('q, 'n) gf =
+  "{p mod gf_poly TYPE('n) |p. p \<in> (UNIV :: 'q :: prime_card mod_ring poly set)}"
+  sorry
+
+setup_lifting type_definition_gf
+
+
+instantiation gf :: (prime_card, finite) zero
+begin
+
+lift_definition zero_gf :: "('q :: prime_card, 'n :: finite) gf"
+  is "0 :: 'q :: prime_card mod_ring poly"
+  apply (rule exI[of _ 0])
+  apply simp
+  done
+
+instance ..
+end
+
+
+instantiation gf :: (prime_card, finite) plus
+begin
+
+lift_definition plus_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf \<Rightarrow> ('q, 'n) gf"
+  is "\<lambda>p q. (p + q) mod gf_poly TYPE('n) :: 'q :: prime_card mod_ring poly"
+  apply auto
+  done
+
+instance ..
+end
+
+
+instantiation gf :: (prime_card, finite) monoid_add
+begin
+
+instance sorry
+end
+
+
+lemma
+  fixes x y z :: "('q :: prime_card, 'n :: finite) gf"
+  shows "x + (y + z) = (x + y) + z"
+  apply transfer
+  sorry
+*)
+
+
+
+
+
+
+definition gf_rel :: "'n itself \<Rightarrow> 'q :: prime_card mod_ring poly \<Rightarrow> 'q mod_ring poly \<Rightarrow> bool" where
+  "gf_rel _ P Q \<longleftrightarrow> [P = Q] (mod gf_poly TYPE('n))"
+
+lemma equivp_gf_rel: "equivp (gf_rel TYPE('n :: finite))"
+  sorry
+
+quotient_type ('q, 'n) gf = "'q :: prime_card mod_ring poly" / "gf_rel TYPE('n :: finite)"
+  by (rule equivp_gf_rel)
+
+(* reduction of a polynomial in \<int>q[X] modulo X^n + 1 *)
+lift_definition to_gf :: "'q :: prime_card mod_ring poly \<Rightarrow> ('q, 'n :: finite) gf" 
+  is "\<lambda>x. (x :: 'q mod_ring poly)" .
+
+(* canonical representative in \<int>q[X] of an element of GF(q,n) *)
+lift_definition of_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> 'q mod_ring poly" 
+  is "\<lambda>P::'q mod_ring poly. P mod gf_poly TYPE('n)"
+  by (simp add: gf_rel_def cong_def)
+
+(* analogous: conversion between 'q mod_ring and int *)
+term "of_int_mod_ring :: int \<Rightarrow> 'a :: finite mod_ring"
+term "to_int_mod_ring :: 'a :: finite mod_ring \<Rightarrow> int"
+
+(* some operations on polynomials *)
+term "[:3, 2, 1:] :: real poly" (* entspricht x^2 + 2x + 1 *)
+term "Polynomial.monom c n :: real poly" (* entspricht c * x^n *)
+term "poly.coeff :: real poly \<Rightarrow> nat \<Rightarrow> real" (* n-ter Koeffizient *)
+term poly (* Auswertungshomomorphismus *)
+term map_poly (* Wende Funktion f auf alle Koeffizienten an (Vorsicht: f 0 sollte 0 sein *)
+
+find_consts "'a poly"
+
+
+
+(* type class instantiations for gf *)
+
+instantiation gf :: (prime_card, finite) comm_ring_1
+begin
+
+lift_definition zero_gf :: "('q :: prime_card, 'n :: finite) gf" is "0" .
+
+lift_definition one_gf :: "('q :: prime_card, 'n :: finite) gf" is "1" .
+
+lift_definition plus_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf \<Rightarrow> ('q, 'n) gf"
+  is "(+)"
+  unfolding gf_rel_def using cong_add by blast
+
+lift_definition uminus_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf"
+  is "uminus"
+  unfolding gf_rel_def  using cong_minus_minus_iff by blast
+
+lift_definition minus_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf \<Rightarrow> ('q, 'n) gf"
+  is "(-)"
+  unfolding gf_rel_def using cong_diff by blast
+
+lift_definition times_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf \<Rightarrow> ('q, 'n) gf"
+  is "(*)"
+  unfolding gf_rel_def using cong_mult by blast
+
+
+instance
+  apply standard
+            apply (transfer; simp add: gf_rel_def algebra_simps; fail)+
+  apply transfer
+  apply (simp add: gf_rel_def)
+  apply (simp add: cong_def)
+  apply (simp add: gf_poly_def)
+  sorry
+
+end
+
+
+instantiation gf :: (prime_card, finite) inverse
+begin
+
+lift_definition inverse_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf" is
+  "\<lambda>P. fst (bezout_coefficients P (gf_poly TYPE('n)))"
+  unfolding gf_rel_def
+  sorry
+
+definition divide_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf \<Rightarrow> ('q, 'n) gf" where
+  "divide_gf P Q = P * inverse Q"
+
+instance ..
+
+end
+
+
+instantiation gf :: (prime_card, finite) field
+begin
+
+instance proof (standard, goal_cases)
+  case (1 z)
+  show ?case
+    sorry
+next
+  case 3
+  thus ?case
+    sorry
+qed (auto simp: divide_gf_def)
+
+end
+
+
+
+
+(* some more lemmas that will probably be useful *)
+
+(*
+  reduction modulo (X^n + 1) is injective on polynomials of degree < n
+  in particular, this means that card(GF(q^n)) = q^n.
+*)
+lemma inj_on_to_gf:
+  "inj_on
+     (to_gf :: 'q :: prime_card mod_ring poly \<Rightarrow> ('q, 'n :: finite) gf)
+     {P. degree P < CARD('n)}"
+  sorry
+
+(* characteristic of GF is exactly q *)
+lemma of_nat_gf_eq_0_iff:
+  "of_nat n = (0 :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow> q dvd n"
+  sorry
+  
+
 
 locale kyber_spec =
 fixes n n' q::int
@@ -13,7 +198,19 @@ assumes
 "q   = 7681"
 "R   = Z_x"
 "R_q = Z_q_x"
+assumes "CARD('q :: prime_card) = q"
+assumes "CARD('n :: finite) = n"
 begin
+
+(* This type corresponds to \<int>q = \<int>/q\<int> *)
+typ "'q mod_ring"
+
+(* This type corresponds to \<int>q[X] *)
+typ "'q mod_ring poly"
+
+(* This type corresponds to \<int>q[X] / (X^n + 1) *)
+typ "('q, 'n) gf"
+
 
 lemma q_nonzero: "q \<noteq> 0" 
 by (smt (verit) kyber_spec_axioms kyber_spec_def)
@@ -25,7 +222,9 @@ definition "Z_q = range (\<lambda>x. x mod q)"
 
 text \<open>Define the polynomial ring over the integers. \<close>
 definition Z_x :: "int poly set" where
-"Z_x=range Poly"
+"Z_x = UNIV"
+
+
 
 
 text \<open>Define the polynomial ring over the integers modulo 7681, the prime number used in Kyber.\<close>
