@@ -9,6 +9,32 @@ begin
 definition gf_poly :: "'n itself \<Rightarrow> 'q :: prime_card mod_ring poly" where
   "gf_poly _ = Polynomial.monom 1 CARD('n) + 1"
 
+lemma degree_gf_poly [simp]: "degree (gf_poly TYPE('n :: finite)) = CARD('n)"
+  unfolding gf_poly_def by (subst degree_add_eq_left)  (auto simp: degree_monom_eq)
+
+lemma gf_poly_nz [simp]: "gf_poly TYPE('n :: finite) \<noteq> 0"
+  using degree_gf_poly[where ?'n = 'n] zero_less_card_finite[where ?'a = 'n]
+        degree_0 zero_less_iff_neq_zero by metis
+
+lemma gf_poly_not_one [simp]: "gf_poly TYPE('n :: finite) \<noteq> 1"
+  using degree_gf_poly[where ?'n = 'n] zero_less_card_finite[where ?'a = 'n]
+        degree_1 zero_less_iff_neq_zero by metis
+
+lemma gf_poly_not_neg_one [simp]: "gf_poly TYPE('n :: finite) \<noteq> -1"
+  using degree_gf_poly[where ?'n = 'n] zero_less_card_finite[where ?'a = 'n]
+        degree_1 zero_less_iff_neq_zero degree_minus by metis
+
+lemma one_mod_gf_poly [simp]: "1 mod gf_poly TYPE('n :: finite) = 1"
+proof -
+  have "2 ^ 1 \<le> (2 ^ CARD('n) :: nat)"
+    by (intro power_increasing) auto
+  thus ?thesis
+    by (intro mod_eqI[where q = 0]) (auto simp: euclidean_size_poly_def)
+qed
+
+(* FIXME: this doesn't actually hold for all combinations of q and n\<dots> *)
+lemma irreducible_gf_poly: "irreducible (gf_poly TYPE('n :: finite))"
+  sorry
 
 (*
 
@@ -69,7 +95,7 @@ definition gf_rel :: "'n itself \<Rightarrow> 'q :: prime_card mod_ring poly \<R
   "gf_rel _ P Q \<longleftrightarrow> [P = Q] (mod gf_poly TYPE('n))"
 
 lemma equivp_gf_rel: "equivp (gf_rel TYPE('n :: finite))"
-  sorry
+  by(intro equivpI sympI reflpI transpI) (auto simp: gf_rel_def cong_sym intro: cong_trans)
 
 quotient_type ('q, 'n) gf = "'q :: prime_card mod_ring poly" / "gf_rel TYPE('n :: finite)"
   by (rule equivp_gf_rel)
@@ -98,71 +124,128 @@ find_consts "'a poly"
 
 
 
+
+
 (* type class instantiations for gf *)
 
 instantiation gf :: (prime_card, finite) comm_ring_1
 begin
 
-lift_definition zero_gf :: "('q :: prime_card, 'n :: finite) gf" is "0" .
+lift_definition zero_gf :: "('a :: prime_card, 'n :: finite) gf" is "0" .
 
-lift_definition one_gf :: "('q :: prime_card, 'n :: finite) gf" is "1" .
+lift_definition one_gf :: "('a :: prime_card, 'n :: finite) gf" is "1" .
 
-lift_definition plus_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf \<Rightarrow> ('q, 'n) gf"
+lift_definition plus_gf :: "('a :: prime_card, 'n :: finite) gf \<Rightarrow> ('a, 'n) gf \<Rightarrow> ('a, 'n) gf"
   is "(+)"
   unfolding gf_rel_def using cong_add by blast
 
-lift_definition uminus_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf"
+lift_definition uminus_gf :: "('a :: prime_card, 'n :: finite) gf \<Rightarrow> ('a, 'n) gf"
   is "uminus"
   unfolding gf_rel_def  using cong_minus_minus_iff by blast
 
-lift_definition minus_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf \<Rightarrow> ('q, 'n) gf"
+lift_definition minus_gf :: "('a :: prime_card, 'n :: finite) gf \<Rightarrow> ('a, 'n) gf \<Rightarrow> ('a, 'n) gf"
   is "(-)"
   unfolding gf_rel_def using cong_diff by blast
 
-lift_definition times_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf \<Rightarrow> ('q, 'n) gf"
+lift_definition times_gf :: "('a :: prime_card, 'n :: finite) gf \<Rightarrow> ('a, 'n) gf \<Rightarrow> ('a, 'n) gf"
   is "(*)"
   unfolding gf_rel_def using cong_mult by blast
 
-
 instance
-  apply standard
-            apply (transfer; simp add: gf_rel_def algebra_simps; fail)+
-  apply transfer
-  apply (simp add: gf_rel_def)
-  apply (simp add: cong_def)
-  apply (simp add: gf_poly_def)
-  sorry
+proof
+  show "0 \<noteq> (1 :: ('a, 'b) gf)"
+    by transfer (simp add: gf_rel_def cong_def)
+qed (transfer; simp add: gf_rel_def algebra_simps; fail)+
 
 end
+
+(*
+lemma (in unique_euclidean_semiring)
+  assumes "a * x + b * y = gcd x y"
+  shows   "bezout_coefficients x y = (a, b)"
+  using assms bezout_coefficients_fst_snd[of x y]
+  sledgehammer
+  find_theorems bezout_coefficients
+proof -
+*)
+
+lemma of_gf_0 [simp]: "of_gf 0 = 0"
+  and of_gf_1 [simp]: "of_gf 1 = 1"
+  and of_gf_uminus [simp]: "of_gf (-p) = -of_gf p"
+  and of_gf_add [simp]: "of_gf (p + q) = of_gf p + of_gf q"
+  and of_gf_diff [simp]: "of_gf (p - q) = of_gf p - of_gf q"
+  by (transfer; simp add: poly_mod_add_left poly_mod_diff_left; fail)+
+
+lemma to_gf_0 [simp]: "to_gf 0 = 0"
+  and to_gf_1 [simp]: "to_gf 1 = 1"
+  and to_gf_uminus [simp]: "to_gf (-p) = -to_gf p"
+  and to_gf_add [simp]: "to_gf (p + q) = to_gf p + to_gf q"
+  and to_gf_diff [simp]: "to_gf (p - q) = to_gf p - to_gf q"
+  and to_gf_mult [simp]: "to_gf (p * q) = to_gf p * to_gf q"
+  by (transfer'; simp; fail)+
+
+lemma to_gf_of_nat [simp]: "to_gf (of_nat n) = of_nat n"
+  by (induction n) auto
+
+lemma to_gf_of_int [simp]: "to_gf (of_int n) = of_int n"
+  by (induction n) auto
+
+lemma of_gf_of_nat [simp]: "of_gf (of_nat n) = of_nat n"
+  by (induction n) auto
+
+lemma of_gf_of_int [simp]: "of_gf (of_int n) = of_int n"
+  by (induction n) auto
+
+lemma of_gf_eq_0_iff [simp]: "of_gf p = 0 \<longleftrightarrow> p = 0"
+  by transfer (simp add: gf_rel_def cong_def)
+
+lemma to_gf_eq_0_iff:
+  "to_gf p = (0 :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow> gf_poly (TYPE('n)) dvd p"
+  by transfer (auto simp: gf_rel_def cong_def)
 
 
 instantiation gf :: (prime_card, finite) inverse
 begin
 
-lift_definition inverse_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf" is
-  "\<lambda>P. fst (bezout_coefficients P (gf_poly TYPE('n)))"
-  unfolding gf_rel_def
-  sorry
+definition inverse_gf :: "('a :: prime_card, 'b :: finite) gf \<Rightarrow> ('a, 'b) gf" where
+  "inverse P = to_gf (fst (bezout_coefficients (of_gf P) (gf_poly (TYPE('b)))))"
 
-definition divide_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf \<Rightarrow> ('q, 'n) gf" where
+definition divide_gf :: "('a :: prime_card, 'b :: finite) gf \<Rightarrow> ('a, 'b) gf \<Rightarrow> ('a, 'b) gf" where
   "divide_gf P Q = P * inverse Q"
 
 instance ..
 
 end
 
-
 instantiation gf :: (prime_card, finite) field
 begin
 
 instance proof (standard, goal_cases)
   case (1 z)
-  show ?case
-    sorry
-next
-  case 3
   thus ?case
-    sorry
+    unfolding inverse_gf_def
+  proof transfer
+    fix P :: "'a mod_ring poly"
+    define Q :: "'a mod_ring poly" where "Q = gf_poly TYPE('b)"
+    define B where "B = bezout_coefficients (P mod Q) Q"
+    assume "\<not>gf_rel TYPE('b) P 0"
+    hence "\<not>Q dvd P"
+      by (auto simp: gf_rel_def Q_def cong_def)
+    have "[fst B * P + snd B * 0 = fst B * (P mod Q) + snd B * Q] (mod Q)"
+      by (intro cong_mult cong_add cong) (auto simp: cong_def)
+    also have "fst B * (P mod Q) + snd B * Q = gcd (P mod Q) Q"
+      unfolding B_def by (meson bezout_coefficients_fst_snd)
+    also have "Rings.coprime Q P"
+      using \<open>\<not>Q dvd P\<close> unfolding Q_def
+      by (intro prime_elem_imp_coprime irreducible_imp_prime_elem irreducible_gf_poly)
+    hence "gcd (P mod Q) Q = 1"
+      by (simp add: Q_def gcd.commute)
+    finally show "gf_rel TYPE('b) (fst B * P) 1"
+      by (simp add: gf_rel_def Q_def)
+  qed
+next
+  show "inverse (0 :: ('a, 'b) gf) = 0"
+    by (auto simp: inverse_gf_def bezout_coefficients_left_0)
 qed (auto simp: divide_gf_def)
 
 end
@@ -172,6 +255,11 @@ end
 
 (* some more lemmas that will probably be useful *)
 
+lemma to_gf_eq_iff [simp]:
+  "to_gf P = (to_gf Q :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow>
+   [P = Q] (mod (gf_poly TYPE('n)))"
+  by transfer (auto simp: gf_rel_def)
+
 (*
   reduction modulo (X^n + 1) is injective on polynomials of degree < n
   in particular, this means that card(GF(q^n)) = q^n.
@@ -180,13 +268,43 @@ lemma inj_on_to_gf:
   "inj_on
      (to_gf :: 'q :: prime_card mod_ring poly \<Rightarrow> ('q, 'n :: finite) gf)
      {P. degree P < CARD('n)}"
-  sorry
+  by (intro inj_onI) (auto simp: cong_def mod_poly_less)
 
 (* characteristic of GF is exactly q *)
-lemma of_nat_gf_eq_0_iff:
-  "of_nat n = (0 :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow> q dvd n"
-  sorry
-  
+lemma of_int_mod_ring_eq_0_iff:
+  "(of_int n :: ('n :: {finite, nontriv} mod_ring)) = 0 \<longleftrightarrow> int (CARD('n)) dvd n"
+  by transfer auto
+
+lemma of_int_mod_ring_eq_of_int_iff:
+  "(of_int n :: ('n :: {finite, nontriv} mod_ring)) = of_int m \<longleftrightarrow> [n = m] (mod (int (CARD('n))))"
+  by transfer (auto simp: cong_def)
+
+lemma of_int_gf_eq_0_iff [simp]:
+  "of_int n = (0 :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow> int (CARD('q)) dvd n"
+proof -
+  have "of_int n = (0 :: ('q, 'n) gf) \<longleftrightarrow> (of_int n :: 'q mod_ring poly) = 0"
+    by (smt (z3) of_gf_eq_0_iff of_gf_of_int)
+  also have "\<dots> \<longleftrightarrow> (of_int n :: 'q mod_ring) = 0"
+    by (simp add: of_int_poly)
+  also have "\<dots> \<longleftrightarrow> int (CARD('q)) dvd n"
+    by (simp add: of_int_mod_ring_eq_0_iff)
+  finally show ?thesis .
+qed
+
+lemma of_int_gf_eq_of_int_iff:
+  "of_int n = (of_int m :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow> [n = m] (mod (int (CARD('q))))"
+  using of_int_gf_eq_0_iff[of "n - m", where ?'q = 'q and ?'n = 'n]
+  by (simp del: of_int_gf_eq_0_iff add: cong_iff_dvd_diff)
+
+lemma of_nat_gf_eq_of_nat_iff:
+  "of_nat n = (of_nat m :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow> [n = m] (mod CARD('q))"
+  using of_int_gf_eq_of_int_iff[of "int n" "int m"] 
+  by (simp add: cong_int_iff)
+
+lemma of_nat_gf_eq_0_iff [simp]:
+  "of_nat n = (0 :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow> CARD('q) dvd n"
+  using of_int_gf_eq_0_iff[of "int n"] by simp
+
 
 
 locale kyber_spec =
