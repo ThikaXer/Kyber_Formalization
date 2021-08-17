@@ -65,41 +65,19 @@ using compress_def by auto
 lemma decompress_zero: "decompress 0 d = 0"
 unfolding decompress_def by auto
 
-lemma compress_no_mod:
-assumes 
-  "x\<in>{0..\<lceil>q-(q/2^(d+1))\<rceil>-1}" 
-  "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
-shows "compress x d = round (real_of_int (2 ^ d * x) / real_of_int q)"
-sorry
 
-lemma compress_mod:
-assumes 
-  "x\<in>{\<lceil>q-(q/2^(d+1))\<rceil>..q-1}" 
-  "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
-shows "compress x d = 0"
-sorry
 
-(*
-lemma compress_id:
+lemma compress_in_range:
 assumes 
-  "x\<in>{0..floor (q-(q/2^(d+1)))-1}" 
+  "x\<in>{0..ceiling (q-(q/2^(d+1)))-1}" 
   "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
-shows "round (real_of_int (2 ^ d * x) / real_of_int q) \<in> {0..2^d - 1}" 
-proof (auto, goal_cases)
-case 1
-  have "d < log 2 q" using assms(2) by linarith
-  have "(2::int)^d \<noteq> 0" by simp
-  have "2 powr (real d) < of_int q" using less_log_iff[of 2 q d] \<open>d< log 2 q\<close> q_gt_zero by auto
-  show ?case using 1(1) \<open>2 powr (real d) < q\<close> 
-  by (smt (verit, best) divide_divide_eq_right divide_nonneg_nonneg of_int_0_le_iff 
-    q_gt_zero round_0 round_mono zero_le_power)
-next
-case 2
+shows "round (real_of_int (2 ^ d * x) / real_of_int q) < 2^d " 
+proof -
   have "d < log 2 q" using assms(2) by linarith
   have "(2::int)^d \<noteq> 0" by simp
   have "2 powr (real d) < of_int q" using less_log_iff[of 2 q d] \<open>d< log 2 q\<close> q_gt_zero by auto
   then have "real_of_int x < real_of_int q - real_of_int q / (2 * 2 ^ d)" 
-    using assms(1) 2(2) by linarith
+    using assms(1) less_ceiling_iff by auto
   then have "2 ^ d * real_of_int x / real_of_int q < 
     2 ^ d * (real_of_int q - real_of_int q / (2 * 2 ^ d)) / real_of_int q"
     using \<open>2 powr (real d) < q\<close> 
@@ -111,11 +89,51 @@ case 2
   also have "\<dots> = 2^d - 1/2" using \<open>2^d \<noteq> 0\<close>
     by (simp add: right_diff_distrib')
   finally have "2 ^ d * real_of_int x / real_of_int q < 2^d - (1::real)/(2::real)" by auto
-  then show ?case unfolding round_def using floor_mono
-    by (smt (verit, best) floor_correct of_int_add of_int_hom.hom_one 
-    of_int_power_less_of_int_cancel_iff)
+  then show ?thesis unfolding round_def using floor_less_iff by fastforce
 qed 
-*)
+
+
+lemma compress_no_mod:
+assumes 
+  "x\<in>{0..\<lceil>q-(q / 2^(d+1))\<rceil>-1}" 
+  "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
+shows "compress x d = round (real_of_int (2 ^ d * x) / real_of_int q)"
+ unfolding compress_def using compress_in_range[OF assms] assms(1) 
+ by (smt (verit, best) atLeastAtMost_iff div_neg_pos_less0 divide_nonneg_nonneg 
+    mod_pos_pos_trivial nonzero_mult_div_cancel_left not_exp_less_eq_0_int 
+    of_int_0_le_iff q_gt_zero round_0 round_mono)
+
+lemma compress_2d:
+assumes
+  "x\<in>{\<lceil>q-(q/2^(d+1))\<rceil>..q-1}" 
+  "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
+shows "round (real_of_int (2 ^ d * x) / real_of_int q) = 2^d "
+using assms proof -
+  have "x\<ge>q-(q/2^(d+1))" using assms(1) 
+    by (meson atLeastAtMost_iff ceiling_le_iff)
+  then have "real_of_int (2 ^ d * x) / real_of_int q \<ge> 
+        2 ^ d * (real_of_int q - real_of_int q / 2 ^ (d + 1)) / real_of_int q"
+    by (smt (verit, ccfv_SIG) divide_strict_right_mono less_eq_real_def 
+    linordered_comm_semiring_strict_class.comm_mult_strict_left_mono of_int_0_less_iff 
+    of_int_add of_int_hom.hom_mult of_int_hom.hom_one of_int_power q_gt_zero zero_less_power)
+  also have "\<dots> = 2 ^ d * (1 - 1 / 2 ^ (d + 1))" using q_nonzero sorry
+  also have "\<dots> = 2^d - 1/2 " sorry
+  finally have "real_of_int (2 ^ d * x) / real_of_int q \<ge> 2^d -1/2" sorry
+  then have "round (real_of_int (2 ^ d * x) / real_of_int q) \<ge> 2^d" sorry
+  moreover have "round (real_of_int (2 ^ d * x) / real_of_int q) \<le> 2^d" sorry
+  ultimately show ?thesis by auto
+qed
+
+lemma compress_mod:
+assumes 
+  "x\<in>{\<lceil>q-(q/2^(d+1))\<rceil>..q-1}" 
+  "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
+shows "compress x d = 0"
+unfolding compress_def using compress_2d[OF assms] by simp
+
+
+
+
 
 lemma decompress_compress_1: 
 assumes 
@@ -131,7 +149,7 @@ proof -
   have "let c_real = real_of_int (2 ^ d * x) / real_of_int q in 
         abs (of_int (compress x d) - c_real) \<le> 1/2"
     using of_int_round_abs_le unfolding compress_def Let_def 
-    using mod_range  by auto
+    using mod_range sorry
   have "let d_real = real_of_int q * real_of_int y / real_of_int 2 ^ d in
         abs (of_int (decompress y d) - d_real) \<le> 1/2" if "y \<in> {0.. 2^d-1}" for y 
     using of_int_round_abs_le unfolding decompress_def Let_def by auto
