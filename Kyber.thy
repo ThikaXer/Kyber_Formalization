@@ -6,17 +6,53 @@ imports Main "HOL-Computational_Algebra.Computational_Algebra"
 
 begin
 
-thm irreducible_def
-thm prime_elem_def
-find_theorems irreducible prime_elem
+lemma of_int_mod_ring_eq_0_iff:
+  "(of_int n :: ('n :: {finite, nontriv} mod_ring)) = 0 \<longleftrightarrow> int (CARD('n)) dvd n"
+  by transfer auto
 
-definition bar :: "'a :: zero \<Rightarrow> 'a" where "bar x = x"
+lemma of_int_mod_ring_eq_of_int_iff:
+  "(of_int n :: ('n :: {finite, nontriv} mod_ring)) = of_int m \<longleftrightarrow> [n = m] (mod (int (CARD('n))))"
+  by transfer (auto simp: cong_def)
+
+lemma degree_of_int_poly':
+  assumes "of_int (lead_coeff p) \<noteq> (0 :: 'a :: ring_1)"
+  shows "degree (of_int_poly p :: 'a poly) = degree p"
+proof (intro antisym)
+  show "degree (of_int_poly p) \<le> degree p"
+    by (intro degree_le) (auto simp: coeff_eq_0)
+  show "degree (of_int_poly p :: 'a poly) \<ge> degree p"
+    using assms by (intro le_degree) auto
+qed
+
+
 
 definition mod_poly_rel :: "nat \<Rightarrow> int poly \<Rightarrow> int poly \<Rightarrow> bool" where
   "mod_poly_rel m p q \<longleftrightarrow> (\<forall>n. [poly.coeff p n = poly.coeff q n] (mod (int m)))"
 
+lemma mod_poly_rel_altdef:
+  "mod_poly_rel CARD('n :: nontriv) p q \<longleftrightarrow> (of_int_poly p) = (of_int_poly q :: 'n mod_ring poly)"
+  by (auto simp: poly_eq_iff mod_poly_rel_def of_int_mod_ring_eq_of_int_iff)
+
 definition mod_poly_is_unit :: "nat \<Rightarrow> int poly \<Rightarrow> bool" where
   "mod_poly_is_unit m p \<longleftrightarrow> (\<exists>r. mod_poly_rel m (p * r) 1)"
+
+lemma mod_poly_is_unit_altdef:
+  "mod_poly_is_unit CARD('n :: nontriv) p \<longleftrightarrow> (of_int_poly p :: 'n mod_ring poly) dvd 1"
+proof
+  assume "mod_poly_is_unit CARD('n) p"
+  thus "(of_int_poly p :: 'n mod_ring poly) dvd 1"
+    by (auto simp: mod_poly_is_unit_def dvd_def mod_poly_rel_altdef of_int_poly_hom.hom_mult)
+next 
+  assume "(of_int_poly p :: 'n mod_ring poly) dvd 1"
+  then obtain q where q: "(of_int_poly p :: 'n mod_ring poly) * q = 1"
+    by auto
+  also have "q = of_int_poly (map_poly to_int_mod_ring q)"
+    by (simp add: of_int_of_int_mod_ring poly_eqI)
+  also have "of_int_poly p * \<dots> = of_int_poly (p * map_poly to_int_mod_ring q)"
+    by (simp add: of_int_poly_hom.hom_mult)
+  finally show "mod_poly_is_unit CARD('n) p"
+    by (auto simp: mod_poly_is_unit_def mod_poly_rel_altdef)
+qed
 
 definition mod_poly_irreducible :: "nat \<Rightarrow> int poly \<Rightarrow> bool" where
   "mod_poly_irreducible m Q \<longleftrightarrow>
@@ -25,12 +61,80 @@ definition mod_poly_irreducible :: "nat \<Rightarrow> int poly \<Rightarrow> boo
         (\<forall>a b. mod_poly_rel m Q (a * b) \<longrightarrow>
                mod_poly_is_unit m a \<or> mod_poly_is_unit m b)"
 
+lemma of_int_poly_to_int_poly: "of_int_poly (to_int_poly p) = p"
+  by (simp add: of_int_of_int_mod_ring poly_eqI)
+
+lemma mod_poly_irreducible_altdef:
+  "mod_poly_irreducible CARD('n :: nontriv) p \<longleftrightarrow> irreducible (of_int_poly p :: 'n mod_ring poly)"
+proof
+  assume "irreducible (of_int_poly p :: 'n mod_ring poly)"
+  thus "mod_poly_irreducible CARD('n) p"
+    by (auto simp: mod_poly_irreducible_def mod_poly_rel_altdef mod_poly_is_unit_altdef
+                   irreducible_def of_int_poly_hom.hom_mult)
+next
+  assume *: "mod_poly_irreducible CARD('n) p"
+  show "irreducible (of_int_poly p :: 'n mod_ring poly)"
+    unfolding irreducible_def
+  proof (intro conjI impI allI)
+    fix a b assume ab: "(of_int_poly p :: 'n mod_ring poly) = a * b"
+    have "of_int_poly (map_poly to_int_mod_ring a * map_poly to_int_mod_ring b) =
+          of_int_poly (map_poly to_int_mod_ring a) *
+          (of_int_poly (map_poly to_int_mod_ring b) :: 'n mod_ring poly)"
+      by (simp add: of_int_poly_hom.hom_mult)
+    also have "\<dots> = a * b"
+      by (simp add: of_int_poly_to_int_poly)
+    also have "\<dots> = of_int_poly p"
+      using ab by simp
+    finally have "(of_int_poly p :: 'n mod_ring poly) = of_int_poly (to_int_poly a * to_int_poly b)" ..
+    hence "of_int_poly (to_int_poly a) dvd (1 :: 'n mod_ring poly) \<or> 
+           of_int_poly (to_int_poly b) dvd (1 :: 'n mod_ring poly)"
+      using * unfolding mod_poly_irreducible_def mod_poly_rel_altdef mod_poly_is_unit_altdef
+      by blast
+    thus "(a dvd (1 :: 'n mod_ring poly)) \<or> (b dvd (1 :: 'n mod_ring poly))"
+      by (simp add: of_int_poly_to_int_poly)
+  qed (use * in \<open>auto simp: mod_poly_irreducible_def mod_poly_rel_altdef mod_poly_is_unit_altdef\<close>)
+qed
+    
+
 class gf_spec = prime_card +
   fixes gf_poly' :: "'a itself \<Rightarrow> int poly"
-  assumes gf_poly_irreducible: "mod_poly_irreducible CARD('a) (gf_poly' TYPE('a))"
+  assumes irreducible_gf_poly'': "mod_poly_irreducible CARD('a) (gf_poly' TYPE('a))"
+  assumes not_dvd_lead_coeff_gf_poly':  "\<not>int CARD('a) dvd lead_coeff (gf_poly' TYPE('a))"
 
 definition gf_poly :: "'a :: gf_spec mod_ring poly" where
   "gf_poly = of_int_poly (gf_poly' TYPE('a))"
+
+
+definition (in gf_spec) deg_gf :: "'a itself \<Rightarrow> nat" where
+  "deg_gf _ = degree (gf_poly' TYPE('a))"
+
+lemma degree_gf_poly': "degree (gf_poly' TYPE('a :: gf_spec)) = deg_gf (TYPE('a))"
+  by (simp add: deg_gf_def)
+
+lemma degree_gf_poly:
+  "degree (gf_poly :: 'a :: gf_spec mod_ring poly) = deg_gf (TYPE('a))"
+  unfolding gf_poly_def using not_dvd_lead_coeff_gf_poly'[where ?'a = 'a]
+  by (subst degree_of_int_poly') (auto simp: of_int_mod_ring_eq_0_iff degree_gf_poly')
+
+lemma irreducible_gf_poly: "irreducible gf_poly"
+  using irreducible_gf_poly''[where ?'a = 'a]
+  unfolding irreducible_def mod_poly_irreducible_altdef gf_poly_def .
+
+lemma deg_gf_pos: "deg_gf TYPE('a :: gf_spec) > 0"
+  unfolding degree_gf_poly [symmetric] using irreducible_gf_poly[where ?'a = 'a]
+  by (auto intro!: Nat.gr0I)
+
+lemma gf_poly_nz [simp]: "gf_poly \<noteq> 0"
+  using deg_gf_pos[where ?'a = 'a] by (auto simp flip: degree_gf_poly)
+
+lemma one_mod_gf_poly [simp]: "1 mod (gf_poly :: 'a :: gf_spec mod_ring poly) = 1"
+proof -
+  have "2 ^ 1 \<le> (2 ^ deg_gf TYPE('a) :: nat)"
+    using deg_gf_pos[where ?'a = 'a] by (intro power_increasing) auto
+  thus ?thesis
+    by (intro mod_eqI[where q = 0]) (auto simp: euclidean_size_poly_def degree_gf_poly)
+qed
+
 
 definition gf_rel :: "'a :: gf_spec mod_ring poly \<Rightarrow> 'a mod_ring poly \<Rightarrow> bool" where
   "gf_rel P Q \<longleftrightarrow> [P = Q] (mod gf_poly)"
@@ -42,129 +146,13 @@ lemma equivp_gf_rel: "equivp gf_rel"
 quotient_type (overloaded) 'a gf = "'a :: gf_spec mod_ring poly" / gf_rel
   by (rule equivp_gf_rel)
 
-definition (in gf_spec) deg_gf :: "'a itself \<Rightarrow> nat" where
-  "deg_gf _ = degree (gf_poly' TYPE('a))"
-
-lemma mod_poly_irreducible_gf_7681_256:
-  "mod_poly_irreducible 7681 (Polynomial.monom 1 256 + 1)"
-  sorry
-
-locale kyber_spec =
-fixes n n' q::int
-and R R_q
-assumes
-"n   = 256"
-"n'  = 9"
-"q   = 7681"
-"R   = Z_x"
-"R_q = Z_q_x"
-assumes "int (CARD('a :: gf_spec)) = q"
-assumes "gf_poly' TYPE('a) = Polynomial.monom 1 (nat n) + 1"
-begin
-
-
-
-
-
-
-lemma degree_gf_poly [simp]: "degree (gf_poly TYPE('n :: finite)) = CARD('n)"
-  unfolding gf_poly_def by (subst degree_add_eq_left)  (auto simp: degree_monom_eq)
-
-lemma gf_poly_nz [simp]: "gf_poly TYPE('n :: finite) \<noteq> 0"
-  using degree_gf_poly[where ?'n = 'n] zero_less_card_finite[where ?'a = 'n]
-        degree_0 zero_less_iff_neq_zero by metis
-
-lemma gf_poly_not_one [simp]: "gf_poly TYPE('n :: finite) \<noteq> 1"
-  using degree_gf_poly[where ?'n = 'n] zero_less_card_finite[where ?'a = 'n]
-        degree_1 zero_less_iff_neq_zero by metis
-
-lemma gf_poly_not_neg_one [simp]: "gf_poly TYPE('n :: finite) \<noteq> -1"
-  using degree_gf_poly[where ?'n = 'n] zero_less_card_finite[where ?'a = 'n]
-        degree_1 zero_less_iff_neq_zero degree_minus by metis
-
-lemma one_mod_gf_poly [simp]: "1 mod gf_poly TYPE('n :: finite) = 1"
-proof -
-  have "2 ^ 1 \<le> (2 ^ CARD('n) :: nat)"
-    by (intro power_increasing) auto
-  thus ?thesis
-    by (intro mod_eqI[where q = 0]) (auto simp: euclidean_size_poly_def)
-qed
-
-(* FIXME: this doesn't actually hold for all combinations of q and n\<dots> *)
-lemma irreducible_gf_poly: "irreducible (gf_poly TYPE('n :: finite))"
-  sorry
-
-(*
-
-(* this type corresponds to \<int>q[X] / (X^n + 1) *)
-
-typedef ('q, 'n) gf =
-  "{p mod gf_poly TYPE('n) |p. p \<in> (UNIV :: 'q :: prime_card mod_ring poly set)}"
-  sorry
-
-setup_lifting type_definition_gf
-
-
-instantiation gf :: (prime_card, finite) zero
-begin
-
-lift_definition zero_gf :: "('q :: prime_card, 'n :: finite) gf"
-  is "0 :: 'q :: prime_card mod_ring poly"
-  apply (rule exI[of _ 0])
-  apply simp
-  done
-
-instance ..
-end
-
-
-instantiation gf :: (prime_card, finite) plus
-begin
-
-lift_definition plus_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> ('q, 'n) gf \<Rightarrow> ('q, 'n) gf"
-  is "\<lambda>p q. (p + q) mod gf_poly TYPE('n) :: 'q :: prime_card mod_ring poly"
-  apply auto
-  done
-
-instance ..
-end
-
-
-instantiation gf :: (prime_card, finite) monoid_add
-begin
-
-instance sorry
-end
-
-
-lemma
-  fixes x y z :: "('q :: prime_card, 'n :: finite) gf"
-  shows "x + (y + z) = (x + y) + z"
-  apply transfer
-  sorry
-*)
-
-
-
-
-
-
-definition gf_rel :: "'n itself \<Rightarrow> 'q :: prime_card mod_ring poly \<Rightarrow> 'q mod_ring poly \<Rightarrow> bool" where
-  "gf_rel _ P Q \<longleftrightarrow> [P = Q] (mod gf_poly TYPE('n))"
-
-lemma equivp_gf_rel: "equivp (gf_rel TYPE('n :: finite))"
-  by(intro equivpI sympI reflpI transpI) (auto simp: gf_rel_def cong_sym intro: cong_trans)
-
-quotient_type ('q, 'n) gf = "'q :: prime_card mod_ring poly" / "gf_rel TYPE('n :: finite)"
-  by (rule equivp_gf_rel)
-
 (* reduction of a polynomial in \<int>q[X] modulo X^n + 1 *)
-lift_definition to_gf :: "'q :: prime_card mod_ring poly \<Rightarrow> ('q, 'n :: finite) gf" 
+lift_definition to_gf :: "'a :: gf_spec mod_ring poly \<Rightarrow> 'a gf" 
   is "\<lambda>x. (x :: 'q mod_ring poly)" .
 
 (* canonical representative in \<int>q[X] of an element of GF(q,n) *)
-lift_definition of_gf :: "('q :: prime_card, 'n :: finite) gf \<Rightarrow> 'q mod_ring poly" 
-  is "\<lambda>P::'q mod_ring poly. P mod gf_poly TYPE('n)"
+lift_definition of_gf :: "'a :: gf_spec gf \<Rightarrow> 'a mod_ring poly" 
+  is "\<lambda>P::'a mod_ring poly. P mod gf_poly"
   by (simp add: gf_rel_def cong_def)
 
 (* analogous: conversion between 'q mod_ring and int *)
@@ -186,46 +174,36 @@ find_consts "'a poly"
 
 (* type class instantiations for gf *)
 
-instantiation gf :: (prime_card, finite) comm_ring_1
+instantiation gf :: (gf_spec) comm_ring_1
 begin
 
-lift_definition zero_gf :: "('a :: prime_card, 'n :: finite) gf" is "0" .
+lift_definition zero_gf :: "'a gf" is "0" .
 
-lift_definition one_gf :: "('a :: prime_card, 'n :: finite) gf" is "1" .
+lift_definition one_gf :: "'a gf" is "1" .
 
-lift_definition plus_gf :: "('a :: prime_card, 'n :: finite) gf \<Rightarrow> ('a, 'n) gf \<Rightarrow> ('a, 'n) gf"
+lift_definition plus_gf :: "'a gf \<Rightarrow> 'a gf \<Rightarrow> 'a gf"
   is "(+)"
   unfolding gf_rel_def using cong_add by blast
 
-lift_definition uminus_gf :: "('a :: prime_card, 'n :: finite) gf \<Rightarrow> ('a, 'n) gf"
+lift_definition uminus_gf :: "'a gf \<Rightarrow> 'a gf"
   is "uminus"
   unfolding gf_rel_def  using cong_minus_minus_iff by blast
 
-lift_definition minus_gf :: "('a :: prime_card, 'n :: finite) gf \<Rightarrow> ('a, 'n) gf \<Rightarrow> ('a, 'n) gf"
+lift_definition minus_gf :: "'a gf \<Rightarrow> 'a gf \<Rightarrow> 'a gf"
   is "(-)"
   unfolding gf_rel_def using cong_diff by blast
 
-lift_definition times_gf :: "('a :: prime_card, 'n :: finite) gf \<Rightarrow> ('a, 'n) gf \<Rightarrow> ('a, 'n) gf"
+lift_definition times_gf :: "'a gf \<Rightarrow> 'a gf \<Rightarrow> 'a gf"
   is "(*)"
   unfolding gf_rel_def using cong_mult by blast
 
 instance
 proof
-  show "0 \<noteq> (1 :: ('a, 'b) gf)"
+  show "0 \<noteq> (1 :: 'a gf)"
     by transfer (simp add: gf_rel_def cong_def)
 qed (transfer; simp add: gf_rel_def algebra_simps; fail)+
 
 end
-
-(*
-lemma (in unique_euclidean_semiring)
-  assumes "a * x + b * y = gcd x y"
-  shows   "bezout_coefficients x y = (a, b)"
-  using assms bezout_coefficients_fst_snd[of x y]
-  sledgehammer
-  find_theorems bezout_coefficients
-proof -
-*)
 
 lemma of_gf_0 [simp]: "of_gf 0 = 0"
   and of_gf_1 [simp]: "of_gf 1 = 1"
@@ -258,25 +236,18 @@ lemma of_gf_eq_0_iff [simp]: "of_gf p = 0 \<longleftrightarrow> p = 0"
   by transfer (simp add: gf_rel_def cong_def)
 
 lemma to_gf_eq_0_iff:
-  "to_gf p = (0 :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow> gf_poly (TYPE('n)) dvd p"
+  "to_gf p = 0 \<longleftrightarrow> gf_poly dvd p"
   by transfer (auto simp: gf_rel_def cong_def)
 
 
-instantiation gf :: (prime_card, finite) inverse
+instantiation gf :: (gf_spec) field
 begin
 
-definition inverse_gf :: "('a :: prime_card, 'b :: finite) gf \<Rightarrow> ('a, 'b) gf" where
-  "inverse P = to_gf (fst (bezout_coefficients (of_gf P) (gf_poly (TYPE('b)))))"
+definition inverse_gf :: "'a gf \<Rightarrow> 'a gf" where
+  "inverse P = to_gf (fst (bezout_coefficients (of_gf P) gf_poly))"
 
-definition divide_gf :: "('a :: prime_card, 'b :: finite) gf \<Rightarrow> ('a, 'b) gf \<Rightarrow> ('a, 'b) gf" where
+definition divide_gf :: "'a gf \<Rightarrow> 'a gf \<Rightarrow> 'a gf" where
   "divide_gf P Q = P * inverse Q"
-
-instance ..
-
-end
-
-instantiation gf :: (prime_card, finite) field
-begin
 
 instance proof (standard, goal_cases)
   case (1 z)
@@ -284,9 +255,9 @@ instance proof (standard, goal_cases)
     unfolding inverse_gf_def
   proof transfer
     fix P :: "'a mod_ring poly"
-    define Q :: "'a mod_ring poly" where "Q = gf_poly TYPE('b)"
+    define Q :: "'a mod_ring poly" where "Q = gf_poly"
     define B where "B = bezout_coefficients (P mod Q) Q"
-    assume "\<not>gf_rel TYPE('b) P 0"
+    assume "\<not>gf_rel P 0"
     hence "\<not>Q dvd P"
       by (auto simp: gf_rel_def Q_def cong_def)
     have "[fst B * P + snd B * 0 = fst B * (P mod Q) + snd B * Q] (mod Q)"
@@ -298,11 +269,11 @@ instance proof (standard, goal_cases)
       by (intro prime_elem_imp_coprime irreducible_imp_prime_elem irreducible_gf_poly)
     hence "gcd (P mod Q) Q = 1"
       by (simp add: Q_def gcd.commute)
-    finally show "gf_rel TYPE('b) (fst B * P) 1"
+    finally show "gf_rel (fst B * P) 1"
       by (simp add: gf_rel_def Q_def)
   qed
 next
-  show "inverse (0 :: ('a, 'b) gf) = 0"
+  show "inverse (0 :: 'a gf) = 0"
     by (auto simp: inverse_gf_def bezout_coefficients_left_0)
 qed (auto simp: divide_gf_def)
 
@@ -314,8 +285,7 @@ end
 (* some more lemmas that will probably be useful *)
 
 lemma to_gf_eq_iff [simp]:
-  "to_gf P = (to_gf Q :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow>
-   [P = Q] (mod (gf_poly TYPE('n)))"
+  "to_gf P = (to_gf Q :: 'a :: gf_spec gf) \<longleftrightarrow> [P = Q] (mod gf_poly)"
   by transfer (auto simp: gf_rel_def)
 
 (*
@@ -324,46 +294,43 @@ lemma to_gf_eq_iff [simp]:
 *)
 lemma inj_on_to_gf:
   "inj_on
-     (to_gf :: 'q :: prime_card mod_ring poly \<Rightarrow> ('q, 'n :: finite) gf)
-     {P. degree P < CARD('n)}"
-  by (intro inj_onI) (auto simp: cong_def mod_poly_less)
+     (to_gf :: 'a :: gf_spec mod_ring poly \<Rightarrow> 'a gf)
+     {P. degree P < deg_gf TYPE('a)}"
+  by (intro inj_onI) (auto simp: cong_def mod_poly_less simp flip: degree_gf_poly)
 
 (* characteristic of GF is exactly q *)
-lemma of_int_mod_ring_eq_0_iff:
-  "(of_int n :: ('n :: {finite, nontriv} mod_ring)) = 0 \<longleftrightarrow> int (CARD('n)) dvd n"
-  by transfer auto
-
-lemma of_int_mod_ring_eq_of_int_iff:
-  "(of_int n :: ('n :: {finite, nontriv} mod_ring)) = of_int m \<longleftrightarrow> [n = m] (mod (int (CARD('n))))"
-  by transfer (auto simp: cong_def)
 
 lemma of_int_gf_eq_0_iff [simp]:
-  "of_int n = (0 :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow> int (CARD('q)) dvd n"
+  "of_int n = (0 :: 'a :: gf_spec gf) \<longleftrightarrow> int (CARD('a)) dvd n"
 proof -
-  have "of_int n = (0 :: ('q, 'n) gf) \<longleftrightarrow> (of_int n :: 'q mod_ring poly) = 0"
+  have "of_int n = (0 :: 'a gf) \<longleftrightarrow> (of_int n :: 'a mod_ring poly) = 0"
     by (smt (z3) of_gf_eq_0_iff of_gf_of_int)
-  also have "\<dots> \<longleftrightarrow> (of_int n :: 'q mod_ring) = 0"
+  also have "\<dots> \<longleftrightarrow> (of_int n :: 'a mod_ring) = 0"
     by (simp add: of_int_poly)
-  also have "\<dots> \<longleftrightarrow> int (CARD('q)) dvd n"
+  also have "\<dots> \<longleftrightarrow> int (CARD('a)) dvd n"
     by (simp add: of_int_mod_ring_eq_0_iff)
   finally show ?thesis .
 qed
 
 lemma of_int_gf_eq_of_int_iff:
-  "of_int n = (of_int m :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow> [n = m] (mod (int (CARD('q))))"
-  using of_int_gf_eq_0_iff[of "n - m", where ?'q = 'q and ?'n = 'n]
+  "of_int n = (of_int m :: 'a :: gf_spec gf) \<longleftrightarrow> [n = m] (mod (int (CARD('a))))"
+  using of_int_gf_eq_0_iff[of "n - m", where ?'a = 'a]
   by (simp del: of_int_gf_eq_0_iff add: cong_iff_dvd_diff)
 
 lemma of_nat_gf_eq_of_nat_iff:
-  "of_nat n = (of_nat m :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow> [n = m] (mod CARD('q))"
+  "of_nat n = (of_nat m :: 'a :: gf_spec gf) \<longleftrightarrow> [n = m] (mod CARD('a))"
   using of_int_gf_eq_of_int_iff[of "int n" "int m"] 
   by (simp add: cong_int_iff)
 
 lemma of_nat_gf_eq_0_iff [simp]:
-  "of_nat n = (0 :: ('q :: prime_card, 'n :: finite) gf) \<longleftrightarrow> CARD('q) dvd n"
+  "of_nat n = (0 :: 'a :: gf_spec gf) \<longleftrightarrow> CARD('a) dvd n"
   using of_int_gf_eq_0_iff[of "int n"] by simp
 
 
+
+lemma mod_poly_irreducible_gf_7681_256:
+  "mod_poly_irreducible 7681 (Polynomial.monom 1 256 + 1)"
+  sorry
 
 locale kyber_spec =
 fixes n n' q::int
@@ -374,24 +341,50 @@ assumes
 "q   = 7681"
 "R   = Z_x"
 "R_q = Z_q_x"
-assumes "CARD('q :: prime_card) = q"
-assumes "CARD('n :: finite) = n"
+assumes CARD_a: "int (CARD('a :: gf_spec)) = q"
+assumes n_gt_1: "n > 1"
+assumes gf_poly'_eq: "gf_poly' TYPE('a) = Polynomial.monom 1 (nat n) + 1"
+
 begin
 
+(* 
+  an abbreviation for our polynomial so that we don't have to annotate the typ
+  all the time
+*)
+abbreviation "Q \<equiv> (gf_poly :: 'a mod_ring poly)"
+
+(* We know here that gf_poly is "X^n + 1" and that it is irreducible in \<int>q[X]. *)
+lemma Q_eq: "Q = (Polynomial.monom 1 (nat n) + 1)"
+  by (simp add: of_int_poly_hom.hom_add gf_poly_def gf_poly'_eq)
+
+lemma degree_Q: "degree Q = nat n"
+proof -
+  have "degree Q = degree (gf_poly' TYPE('a))"
+    by (simp add: degree_gf_poly degree_gf_poly')
+  also have "\<dots> = nat n"
+    unfolding gf_poly'_eq using n_gt_1
+    by (simp add: degree_add_eq_left degree_monom_eq)
+  finally show ?thesis .
+qed
+
+lemma irreducible_Q: "irreducible Q"
+  by (fact irreducible_gf_poly)
+
+
 (* This type corresponds to \<int>q = \<int>/q\<int> *)
-typ "'q mod_ring"
+typ "'a mod_ring"
 
 (* This type corresponds to \<int>q[X] *)
-typ "'q mod_ring poly"
+typ "'a mod_ring poly"
 
 (* This type corresponds to \<int>q[X] / (X^n + 1) *)
-typ "('q, 'n) gf"
+typ "'a gf"
 
 
 lemma q_nonzero: "q \<noteq> 0" 
 by (smt (verit) kyber_spec_axioms kyber_spec_def)
 
-lemma q_gt_zero: "q>0"
+lemma q_gt_zero: "q > 0"
 by (smt (verit, best) kyber_spec_axioms kyber_spec_def)
 
 definition "Z_q = range (\<lambda>x. x mod q)"
