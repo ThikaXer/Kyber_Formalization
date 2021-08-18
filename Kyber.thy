@@ -1,13 +1,71 @@
 theory Kyber
-imports Main "HOL-Computational_Algebra.Computational_Algebra" "HOL-Computational_Algebra.Polynomial_Factorial"
- "Berlekamp_Zassenhaus.Poly_Mod" "Berlekamp_Zassenhaus.Poly_Mod_Finite_Field"
+imports Main "HOL-Computational_Algebra.Computational_Algebra" 
+  "HOL-Computational_Algebra.Polynomial_Factorial"
+  "Berlekamp_Zassenhaus.Poly_Mod" 
+  "Berlekamp_Zassenhaus.Poly_Mod_Finite_Field"
 
 begin
 
+thm irreducible_def
+thm prime_elem_def
+find_theorems irreducible prime_elem
 
-(* this is the polynomial "X ^ n + 1" *)
-definition gf_poly :: "'n itself \<Rightarrow> 'q :: prime_card mod_ring poly" where
-  "gf_poly _ = Polynomial.monom 1 CARD('n) + 1"
+definition bar :: "'a :: zero \<Rightarrow> 'a" where "bar x = x"
+
+definition mod_poly_rel :: "nat \<Rightarrow> int poly \<Rightarrow> int poly \<Rightarrow> bool" where
+  "mod_poly_rel m p q \<longleftrightarrow> (\<forall>n. [poly.coeff p n = poly.coeff q n] (mod (int m)))"
+
+definition mod_poly_is_unit :: "nat \<Rightarrow> int poly \<Rightarrow> bool" where
+  "mod_poly_is_unit m p \<longleftrightarrow> (\<exists>r. mod_poly_rel m (p * r) 1)"
+
+definition mod_poly_irreducible :: "nat \<Rightarrow> int poly \<Rightarrow> bool" where
+  "mod_poly_irreducible m Q \<longleftrightarrow>
+     \<not>mod_poly_rel m Q 0 \<and>
+     \<not>mod_poly_is_unit m Q \<and>
+        (\<forall>a b. mod_poly_rel m Q (a * b) \<longrightarrow>
+               mod_poly_is_unit m a \<or> mod_poly_is_unit m b)"
+
+class gf_spec = prime_card +
+  fixes gf_poly' :: "'a itself \<Rightarrow> int poly"
+  assumes gf_poly_irreducible: "mod_poly_irreducible CARD('a) (gf_poly' TYPE('a))"
+
+definition gf_poly :: "'a :: gf_spec mod_ring poly" where
+  "gf_poly = of_int_poly (gf_poly' TYPE('a))"
+
+definition gf_rel :: "'a :: gf_spec mod_ring poly \<Rightarrow> 'a mod_ring poly \<Rightarrow> bool" where
+  "gf_rel P Q \<longleftrightarrow> [P = Q] (mod gf_poly)"
+
+lemma equivp_gf_rel: "equivp gf_rel"
+  by (intro equivpI sympI reflpI transpI)
+     (auto simp: gf_rel_def cong_sym intro: cong_trans)
+
+quotient_type (overloaded) 'a gf = "'a :: gf_spec mod_ring poly" / gf_rel
+  by (rule equivp_gf_rel)
+
+definition (in gf_spec) deg_gf :: "'a itself \<Rightarrow> nat" where
+  "deg_gf _ = degree (gf_poly' TYPE('a))"
+
+lemma mod_poly_irreducible_gf_7681_256:
+  "mod_poly_irreducible 7681 (Polynomial.monom 1 256 + 1)"
+  sorry
+
+locale kyber_spec =
+fixes n n' q::int
+and R R_q
+assumes
+"n   = 256"
+"n'  = 9"
+"q   = 7681"
+"R   = Z_x"
+"R_q = Z_q_x"
+assumes "int (CARD('a :: gf_spec)) = q"
+assumes "gf_poly' TYPE('a) = Polynomial.monom 1 (nat n) + 1"
+begin
+
+
+
+
+
 
 lemma degree_gf_poly [simp]: "degree (gf_poly TYPE('n :: finite)) = CARD('n)"
   unfolding gf_poly_def by (subst degree_add_eq_left)  (auto simp: degree_monom_eq)
@@ -422,19 +480,23 @@ shows "compress x d = round (real_of_int (2 ^ d * x) / real_of_int q)"
 
 lemma compress_2d:
 assumes
-  "x\<in>{\<lceil>q-(q/2^(d+1))\<rceil>..q-1}" 
+  "x\<in>{\<lceil>q-(q/(2*2^d))\<rceil>..q-1}" 
   "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
 shows "round (real_of_int (2 ^ d * x) / real_of_int q) = 2^d "
 using assms proof -
-  have "x\<ge>q-(q/2^(d+1))" using assms(1) 
+  have "(2::int)^d \<noteq> 0" by simp
+  have "x\<ge>q-(q/(2*2^d))" using assms(1) 
     by (meson atLeastAtMost_iff ceiling_le_iff)
   then have "real_of_int (2 ^ d * x) / real_of_int q \<ge> 
-        2 ^ d * (real_of_int q - real_of_int q / 2 ^ (d + 1)) / real_of_int q"
+        2 ^ d * (real_of_int q - real_of_int q / (2 * 2 ^ d)) / real_of_int q"
     by (smt (verit, ccfv_SIG) divide_strict_right_mono less_eq_real_def 
     linordered_comm_semiring_strict_class.comm_mult_strict_left_mono of_int_0_less_iff 
     of_int_add of_int_hom.hom_mult of_int_hom.hom_one of_int_power q_gt_zero zero_less_power)
-  also have "\<dots> = 2 ^ d * (1 - 1 / 2 ^ (d + 1))" using q_nonzero sorry
-  also have "\<dots> = 2^d - 1/2 " sorry
+  also have "\<dots> =  2 ^ d * ((real_of_int q / real_of_int q) - 
+                  (real_of_int q / real_of_int q) / (2 * 2 ^ d))"
+    using q_nonzero apply (simp add:algebra_simps diff_divide_distrib) sorry
+  also have "\<dots> =  2^d * (1 - 1/(2*2^d))" using q_nonzero by simp
+  also have "\<dots> = 2^d - 1/2" using \<open>2^d \<noteq> 0\<close> by (simp add: right_diff_distrib')
   finally have "real_of_int (2 ^ d * x) / real_of_int q \<ge> 2^d -1/2" sorry
   then have "round (real_of_int (2 ^ d * x) / real_of_int q) \<ge> 2^d" sorry
   moreover have "round (real_of_int (2 ^ d * x) / real_of_int q) \<le> 2^d" sorry
