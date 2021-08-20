@@ -6,14 +6,7 @@ begin
 
 context kyber_spec begin
 
-(* This type corresponds to \<int>q = \<int>/q\<int> *) 
-typ "'a mod_ring"
 
-(* This type corresponds to \<int>q[X] *) 
-typ "'a mod_ring poly"
-
-(* This type corresponds to \<int>q[X] / (X^n + 1) *) 
-typ "'a gf"
 
 lemma q_nonzero: "q \<noteq> 0" 
 using kyber_spec_axioms kyber_spec_def by (smt (z3))
@@ -34,12 +27,38 @@ text \<open>To define the Compress and Decompress functions,
   representation of the equivalence class in \<open>[-q div 2, q div 2]\<close>.\<close>
 
 definition mod_plus_minus :: "int \<Rightarrow> int \<Rightarrow> int" (infixl "mod+-" 70) where 
-  "m mod+- b = ((m + \<lfloor> real_of_int q / 2 \<rfloor>) mod b) - \<lfloor> real_of_int q / 2 \<rfloor>"
+  "m mod+- b = ((m + \<lfloor> real_of_int b / 2 \<rfloor>) mod b) - \<lfloor> real_of_int b / 2 \<rfloor>"
+ 
+lemma mod_range: "b>0 \<Longrightarrow> (a::int) mod (b::int) \<in> {0..b-1}"
+using range_mod by auto
 
-lemma mod_range: 
-  assumes "x \<in> set [0..b-1]" 
-  shows "x mod b = x" 
-using assms by (auto)
+lemma mod_rangeE: 
+  assumes "(a::int)\<in>{0..<b}"
+  shows "a = a mod b"
+using assms by auto
+
+lemma two_mid_lt_q:
+  "2 * \<lfloor>real_of_int q / 2\<rfloor> < q" 
+using oddE[OF prime_odd_int[OF q_prime q_gt_two]] by fastforce
+
+
+lemma mod_plus_minus_range: 
+  assumes "b>0"
+  shows "y mod+- b \<in> {-\<lfloor>b/2\<rfloor>..\<lfloor>b/2\<rfloor>}"
+unfolding mod_plus_minus_def using mod_range[OF assms, of "(y + \<lfloor>real_of_int b / 2\<rfloor>)"]
+by (auto)(linarith)
+
+lemma mod_plus_minus_range_q: 
+  assumes "y \<in> {-\<lfloor>q/2\<rfloor>..\<lfloor>q/2\<rfloor>}"
+  shows "y mod+- q = y"
+using mod_plus_minus_range[OF q_gt_zero, of y] unfolding mod_plus_minus_def
+proof (auto)
+  have this': "y + \<lfloor>real_of_int q / 2\<rfloor> \<in> {0..<q}" using assms two_mid_lt_q by auto
+  have "(y + \<lfloor>real_of_int q / 2\<rfloor>) mod q = (y + \<lfloor>real_of_int q / 2\<rfloor>)" 
+    using mod_rangeE[OF this'] by auto
+  then show "(y + \<lfloor>real_of_int q / 2\<rfloor>) mod q - \<lfloor>real_of_int q / 2\<rfloor> = y" by auto
+qed
+ 
 
 text \<open>Compression only works for \<open>x \<in> Z_q\<close> and outputs an integer 
   in \<open>{0,\<dots> , 2 d − 1}\<close> , where \<open>d < \<lceil>log_2 (q)\<rceil>\<close> . \<close>
@@ -97,19 +116,6 @@ proof -
   ultimately show ?thesis by auto
 qed
 
-(*
-lemma error_lt_q_half:
-  assumes "d>0"
-  shows "round ( real_of_int q / real_of_int (2^(d+1))) < \<lfloor>q / 2\<rfloor>"
-unfolding round_def using assms
-proof -
-  have "(real_of_int q / real_of_int (2 ^ d) + 1) < q" using assms q_gt_two  sorry
-  have "round ( real_of_int q / real_of_int (2^(d+1))) \<le> 
-        (real_of_int q / real_of_int (2 ^ d) + 1)/2" sorry
-  also have "\<dots> < q/2" using \<open>(real_of_int q / real_of_int (2 ^ d) + 1)<q\<close> sorry
-  show ?thesis sorry
-qed
-*)
 
 
 lemma compress_in_range: 
@@ -248,17 +254,48 @@ proof -
   then show ?thesis unfolding round_def using le_floor_iff by fastforce
 qed
 
+
 lemma no_mod_plus_minus: 
   assumes "abs y \<le> round ( real_of_int q / real_of_int (2^(d+1)))"
+          "d>0"
   shows "abs y = abs (y mod+- q)"
-sorry
+proof -
+  have "round (real_of_int q / real_of_int (2^(d+1))) \<le> \<lfloor>q/2\<rfloor>" unfolding round_def 
+  proof -
+    have "real_of_int q/real_of_int (2^d) \<le> real_of_int q/2" using \<open>d>0\<close> 
+    proof -
+      have "1 / real_of_int (2^d) \<le> 1 / 2" using \<open>d>0\<close> inverse_of_nat_le[of 2 "2^d"]
+        by (simp add: self_le_power)
+      then show ?thesis using q_gt_zero 
+        by (smt (verit, ccfv_SIG) divide_cancel_left frac_le of_int_pos zero_less_power)
+    qed
+    moreover have "real_of_int q / 2 + 1 \<le> real_of_int q" using q_gt_two by auto
+    ultimately have "real_of_int q / real_of_int (2 ^ d) + 1 \<le> real_of_int q" 
+      by linarith
+    then have fact: "real_of_int q / real_of_int (2 ^ (d + 1)) + 1 / 2 \<le> real_of_int q / 2" 
+      by auto
+    then show "\<lfloor>real_of_int q / real_of_int (2 ^ (d + 1)) + 1 / 2\<rfloor> \<le> \<lfloor>real_of_int q / 2\<rfloor>" 
+      using floor_mono[OF fact] by auto
+  qed
+  then have "abs y \<le> \<lfloor>q/2\<rfloor>" using assms by auto
+  then show ?thesis using mod_plus_minus_range[OF q_gt_zero]
+    using mod_plus_minus_def two_mid_lt_q by force 
+qed
+
 
 lemma decompress_compress_no_mod_plus_minus: 
   assumes "x\<in>{0..\<lceil>q-(q/(2*2^d))\<rceil>-1}" 
           "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
+          "d>0"
   shows "abs ((decompress (compress x d) d - x) mod+- q) \<le> 
           round ( real_of_int q / real_of_int (2^(d+1)))"
-using decompress_compress_no_mod[OF assms] unfolding mod_plus_minus_def 
+proof -
+  have "abs ((decompress (compress x d) d - x) mod+- q) =
+        abs ((decompress (compress x d) d - x)) " 
+    using no_mod_plus_minus[OF decompress_compress_no_mod[OF assms(1) assms(2)] assms(3)] by auto
+  then show ?thesis using decompress_compress_no_mod[OF assms(1) assms(2)] by auto
+qed
+
 
 lemma ceiling_int: 
   "\<lceil>of_int a + b\<rceil> = a + \<lceil>b\<rceil>"
@@ -296,48 +333,23 @@ qed
 
 
 lemma decompress_compress: 
-  assumes "d < \<lceil>(log 2 q)::real\<rceil>" 
+  assumes "x\<in>{0..<q}"
+          "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
+          "d>0"
   shows "let x' = decompress (compress x d) d in 
-         abs ((x' - x) mod+- q) \<le> round ( of_int q / of_int (2^(d+1)) )" 
-sorry
-
-find_theorems "_^_ \<ge>1"
-
-
-
-
-
-
-
-
-
-find_theorems "_ mod _ "
-
-fun sample_matrix where "sample_matrix k rho = TODO"
-
-fun Sample_vector where "Sample beta_eta_k sigma = TODO"
-
-type seed = int
-
-fun key_gen :: "seed \<Rightarrow> seed \<Rightarrow> vector" where 
-"key_gen rho sigma = (compress q (A s + e) d_t) where A
-= sample_matrix q k rho and (s,e) = sample_vector beta_eta_k sigma"
+         abs ((x' - x) mod+- q) \<le> round ( real_of_int q / real_of_int (2^(d+1)) )" 
+proof (cases "x<\<lceil>q-(q/(2*2^d))\<rceil>")
+case True
+  then have range_x: "x\<in>{0..\<lceil>q-(q/(2*2^d))\<rceil>-1}" using assms(1) by auto
+  show ?thesis unfolding Let_def 
+    using decompress_compress_no_mod_plus_minus[OF range_x assms(2) assms(3)] by auto
+next
+case False
+  then have range_x: "x\<in>{\<lceil>q-(q/(2*2^d))\<rceil>..q-1}" using assms(1) by auto
+  show ?thesis unfolding Let_def using decompress_compress_mod[OF range_x assms(2)] by auto
+qed
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-end
 
 end
 
