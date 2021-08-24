@@ -1,6 +1,7 @@
 theory Compress
 
 imports Kyber_spec
+        "Jordan_Normal_Form.Matrix"
 
 begin
 
@@ -64,18 +65,18 @@ text \<open>Compression only works for \<open>x \<in> Z_q\<close> and outputs an
   in \<open>{0,\<dots> , 2 d − 1}\<close> , where d is a positive integer with \<open>d < \<lceil>log_2 (q)\<rceil>\<close> . 
   For compression we omit the least important bits. Decompression rescales to the mudulus q.\<close>
 
-definition compress :: "int \<Rightarrow> nat \<Rightarrow> int" where 
-  "compress x d = round (real_of_int (2 ^ d * x) / real_of_int q) mod (2^d)"
+definition compress :: "nat \<Rightarrow> int \<Rightarrow> int" where 
+  "compress d x = round (real_of_int (2 ^ d * x) / real_of_int q) mod (2^d)"
 
-definition decompress :: "int \<Rightarrow> nat \<Rightarrow> int" where 
-  "decompress x d = round (real_of_int q * real_of_int x / real_of_int 2 ^ d)"
+definition decompress :: "nat \<Rightarrow> int \<Rightarrow> int" where 
+  "decompress d x = round (real_of_int q * real_of_int x / real_of_int 2 ^ d)"
 
 lemma range_compress: 
   assumes "x\<in>{0..q-1}" "of_nat d < \<lceil>(log 2 q)::real\<rceil>" 
-  shows "compress x d \<in> {0..2^d - 1}" 
+  shows "compress d x \<in> {0..2^d - 1}" 
 using compress_def by auto
 
-lemma decompress_zero: "decompress 0 d = 0" 
+lemma decompress_zero: "decompress d 0 = 0" 
 unfolding decompress_def by auto
 
 lemma d_lt_logq: 
@@ -149,7 +150,7 @@ text \<open>When does the modulo operation in the compression function change th
 lemma compress_no_mod: 
   assumes "x\<in>{0..\<lceil>q-(q / (2*2^d))\<rceil>-1}" 
           "of_nat d < \<lceil>(log 2 q)::real\<rceil>" 
-  shows "compress x d = round (real_of_int (2 ^ d * x) / real_of_int q)" 
+  shows "compress d x = round (real_of_int (2 ^ d * x) / real_of_int q)" 
 unfolding compress_def using compress_in_range[OF assms] assms(1) q_gt_zero 
 by (smt (z3) atLeastAtMost_iff divide_nonneg_nonneg mod_pos_pos_trivial 
   mult_less_cancel_left_pos of_int_nonneg of_nat_0_less_iff right_diff_distrib'
@@ -198,7 +199,7 @@ qed
 lemma compress_mod: 
   assumes "x\<in>{\<lceil>q-(q/(2*2^d))\<rceil>..q-1}" 
           "of_nat d < \<lceil>(log 2 q)::real\<rceil>" 
-  shows "compress x d = 0" 
+  shows "compress d x = 0" 
 unfolding compress_def using compress_2d[OF assms] by simp
 
 
@@ -210,43 +211,43 @@ text \<open>First let us look at the error bound for no \<open>mod+-\<close> red
 lemma decompress_compress_no_mod: 
   assumes "x\<in>{0..\<lceil>q-(q/(2*2^d))\<rceil>-1}" 
           "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
-  shows "abs (decompress (compress x d) d - x) \<le> round ( real_of_int q / real_of_int (2^(d+1)))" 
+  shows "abs (decompress d (compress d x) - x) \<le> round ( real_of_int q / real_of_int (2^(d+1)))" 
 proof - 
-  have "abs (decompress (compress x d) d - x) = 
-        abs (real_of_int (decompress (compress x d) d) - 
+  have "abs (decompress d (compress d x) - x) = 
+        abs (real_of_int (decompress d (compress d x)) - 
              real_of_int q / real_of_int (2^d) * 
                 (real_of_int (2 ^ d * x) / real_of_int q))"
     using q_gt_zero by force
-  also have "\<dots> \<le> abs (real_of_int (decompress (compress x d) d) -
-                       real_of_int q / real_of_int (2^d) * real_of_int (compress x d)) +
-                  abs (real_of_int q / real_of_int (2^d) * real_of_int (compress x d) -
+  also have "\<dots> \<le> abs (real_of_int (decompress d (compress d x)) -
+                       real_of_int q / real_of_int (2^d) * real_of_int (compress d x)) +
+                  abs (real_of_int q / real_of_int (2^d) * real_of_int (compress d x) -
                        real_of_int q / real_of_int (2^d) * real_of_int (2^d) / real_of_int q * x)"
-    using abs_triangle_ineq[of "real_of_int (decompress (compress x d) d) -
-        real_of_int q / real_of_int (2 ^ d) * real_of_int (compress x d)"
-        "real_of_int q / real_of_int (2 ^ d) * real_of_int (compress x d) -
+    using abs_triangle_ineq[of "real_of_int (decompress d (compress d x)) -
+        real_of_int q / real_of_int (2 ^ d) * real_of_int (compress d x)"
+        "real_of_int q / real_of_int (2 ^ d) * real_of_int (compress d x) -
         real_of_int q / real_of_int (2 ^ d) * real_of_int (2 ^ d) / real_of_int q *
         real_of_int x"] by auto
   also have "\<dots> \<le> 1/2 + abs (real_of_int q / real_of_int (2^d) * 
-                  (real_of_int (compress x d) - 
+                  (real_of_int (compress d x) - 
                    real_of_int (2^d) / real_of_int q * real_of_int x))"
     proof -
-      have part_one: "abs (real_of_int (decompress (compress x d) d) -
-                 real_of_int q / real_of_int (2^d) * real_of_int (compress x d)) \<le> 1/2"
+      have part_one: "abs (real_of_int (decompress d (compress d x)) -
+                 real_of_int q / real_of_int (2^d) * real_of_int (compress d x)) \<le> 1/2"
         unfolding decompress_def using of_int_round_abs_le[of "real_of_int q * 
-          real_of_int (compress x d) / real_of_int 2 ^ d"] by simp
-      have "real_of_int q * real_of_int (compress x d) / 2 ^ d - real_of_int x =
-        real_of_int q * (real_of_int (compress x d) - 2 ^ d * real_of_int x / real_of_int q) 
+          real_of_int (compress d x) / real_of_int 2 ^ d"] by simp
+      have "real_of_int q * real_of_int (compress d x) / 2 ^ d - real_of_int x =
+        real_of_int q * (real_of_int (compress d x) - 2 ^ d * real_of_int x / real_of_int q) 
         / 2 ^ d" 
         by (smt (verit, best) divide_cancel_right nonzero_mult_div_cancel_left 
         of_int_eq_0_iff q_nonzero right_diff_distrib times_divide_eq_left zero_less_power)
-      then have part_two: "abs (real_of_int q / real_of_int (2^d) * real_of_int (compress x d) -
+      then have part_two: "abs (real_of_int q / real_of_int (2^d) * real_of_int (compress d x) -
         real_of_int q / real_of_int (2^d) * real_of_int (2^d) / real_of_int q * x) =
         abs (real_of_int q / real_of_int (2^d) * 
-        (real_of_int (compress x d) - real_of_int (2^d) / real_of_int q * x)) " by auto
+        (real_of_int (compress d x) - real_of_int (2^d) / real_of_int q * x)) " by auto
       show ?thesis using part_one part_two by auto
    qed
   also have "\<dots> = 1/2 + (real_of_int q / real_of_int (2^d)) * 
-      abs (real_of_int (compress x d) - real_of_int (2^d) / real_of_int q * real_of_int x)"
+      abs (real_of_int (compress d x) - real_of_int (2^d) / real_of_int q * real_of_int x)"
     by (smt (verit, best) distrib_left divide_nonneg_nonneg mult_eq_0_iff 
       mult_less_cancel_left_pos of_int_nonneg q_gt_zero zero_le_power)
   also have "\<dots> \<le> 1/2 + (real_of_int q / real_of_int (2^d)) * (1 / 2) "
@@ -254,7 +255,7 @@ proof -
     using of_int_round_abs_le[of "real_of_int (2 ^ d) * real_of_int x / real_of_int q"]
     by (smt (verit, ccfv_SIG) divide_nonneg_nonneg left_diff_distrib mult_less_cancel_left_pos 
       of_int_mult of_int_nonneg q_gt_zero times_divide_eq_left zero_le_power)
-  finally have "real_of_int (abs (decompress (compress x d) d - x)) \<le> 
+  finally have "real_of_int (abs (decompress d (compress d x) - x)) \<le> 
                 real_of_int q / real_of_int (2*2^d) + 1/2" 
     by simp
   then show ?thesis unfolding round_def using le_floor_iff by fastforce
@@ -293,11 +294,11 @@ lemma decompress_compress_no_mod_plus_minus:
   assumes "x\<in>{0..\<lceil>q-(q/(2*2^d))\<rceil>-1}" 
           "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
           "d>0"
-  shows "abs ((decompress (compress x d) d - x) mod+- q) \<le> 
+  shows "abs ((decompress d (compress d x) - x) mod+- q) \<le> 
           round ( real_of_int q / real_of_int (2^(d+1)))"
 proof -
-  have "abs ((decompress (compress x d) d - x) mod+- q) =
-        abs ((decompress (compress x d) d - x)) " 
+  have "abs ((decompress d (compress d x) - x) mod+- q) =
+        abs ((decompress d (compress d x) - x)) " 
     using no_mod_plus_minus[OF decompress_compress_no_mod[OF assms(1) assms(2)] assms(3)] by auto
   then show ?thesis using decompress_compress_no_mod[OF assms(1) assms(2)] by auto
 qed
@@ -311,10 +312,10 @@ unfolding ceiling_def by (simp add: add.commute)
 lemma decompress_compress_mod: 
   assumes "x\<in>{\<lceil>q-(q/(2*2^d))\<rceil>..q-1}" 
           "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
-  shows "abs ((decompress (compress x d) d - x) mod+- q) \<le> 
+  shows "abs ((decompress d (compress d x) - x) mod+- q) \<le> 
          round ( real_of_int q / real_of_int (2^(d+1)))"
 proof -
-  have "(decompress (compress x d) d - x) = - x" 
+  have "(decompress d (compress d x) - x) = - x" 
     using compress_mod[OF assms] unfolding decompress_def by auto
   moreover have "-x mod+- q = -x+q" 
   proof -
@@ -346,7 +347,7 @@ lemma decompress_compress:
   assumes "x\<in>{0..<q}"
           "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
           "d>0"
-  shows "let x' = decompress (compress x d) d in 
+  shows "let x' = decompress d (compress d x) in 
          abs ((x' - x) mod+- q) \<le> round ( real_of_int q / real_of_int (2^(d+1)) )" 
 proof (cases "x<\<lceil>q-(q/(2*2^d))\<rceil>")
 case True
@@ -359,7 +360,62 @@ case False
   show ?thesis unfolding Let_def using decompress_compress_mod[OF range_x assms(2)] by auto
 qed
 
+text \<open>We have now defined compression only on integers (ie \<open>{0..<q}\<close>, corresponding to \<open>\<int>_q\<close>). 
+  We need to extend this notion to the ring \<open>\<int>_q[X]/(X^n+1)\<close>. Here, a compressed polynomial 
+  is the compression on every coefficient.\<close>
 
+definition compress_poly :: "nat \<Rightarrow> 'a gf \<Rightarrow> 'a gf" where
+  "compress_poly d = 
+        to_gf \<circ>
+        Poly \<circ>
+        (map Abs_mod_ring) \<circ>
+        (map (compress d)) \<circ>
+        (map Rep_mod_ring) \<circ>
+        coeffs \<circ>
+        of_gf"
+
+(*
+Types:
+
+to_gf :: 'a mod_ring poly \<Rightarrow> 'a gf
+Poly ::  'a mod_ring list \<Rightarrow> 'a mod_ring poly
+map Abs_mod_ring :: int list \<Rightarrow> 'a mod_ring list
+map compress :: int list \<Rightarrow> int list
+map Rep_mod_ring :: 'a mod_ring list \<Rightarrow> int list
+coeffs :: 'a mod_ring poly \<Rightarrow> 'a mod_ring list
+of_gf :: 'a gf \<Rightarrow> 'a mod_ring poly
+
+*)
+
+definition decompress_poly :: "nat \<Rightarrow> 'a gf \<Rightarrow> 'a gf" where
+  "decompress_poly d = 
+        to_gf \<circ>
+        Poly \<circ>
+        (map Abs_mod_ring) \<circ>
+        (map (decompress d)) \<circ>
+        (map Rep_mod_ring) \<circ>
+        coeffs \<circ>
+        of_gf"
+
+(*
+Types:
+
+to_gf :: 'a mod_ring poly \<Rightarrow> 'a gf
+Poly ::  'a mod_ring list \<Rightarrow> 'a mod_ring poly
+map Abs_mod_ring :: int list \<Rightarrow> 'a mod_ring list
+map compress :: int list \<Rightarrow> int list
+map Rep_mod_ring :: 'a mod_ring list \<Rightarrow> int list
+coeffs :: 'a mod_ring poly \<Rightarrow> 'a mod_ring list
+of_gf :: 'a gf \<Rightarrow> 'a mod_ring poly
+*)
+
+text \<open>Compression and decompression of vectors in \<open>\<int>_q[X]/(X^n+1)\<close>.\<close>
+
+definition compress_vec :: "nat \<Rightarrow> 'a gf vec \<Rightarrow> 'a gf vec" where
+  "compress_vec d = map_vec (compress_poly d)"
+
+definition decompress_vec :: "nat \<Rightarrow> 'a gf vec \<Rightarrow> 'a gf vec" where
+  "decompress_vec d = map_vec (decompress_poly d)"
 
 end
 
