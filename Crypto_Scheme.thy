@@ -1,4 +1,4 @@
-theory Key_gen
+theory Crypto_Scheme
 
 imports Kyber_spec
         Compress
