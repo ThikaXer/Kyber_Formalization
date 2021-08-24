@@ -98,7 +98,6 @@ qed
 
 class gf_spec = prime_card +
   fixes gf_poly' :: "'a itself \<Rightarrow> int poly"
-  assumes irreducible_gf_poly'': "mod_poly_irreducible CARD('a) (gf_poly' TYPE('a))"
   assumes not_dvd_lead_coeff_gf_poly':  "\<not>int CARD('a) dvd lead_coeff (gf_poly' TYPE('a))"
 
 definition gf_poly :: "'a :: gf_spec mod_ring poly" where
@@ -116,13 +115,11 @@ lemma degree_gf_poly:
   unfolding gf_poly_def using not_dvd_lead_coeff_gf_poly'[where ?'a = 'a]
   by (subst degree_of_int_poly') (auto simp: of_int_mod_ring_eq_0_iff degree_gf_poly')
 
-lemma irreducible_gf_poly: "irreducible gf_poly"
-  using irreducible_gf_poly''[where ?'a = 'a]
-  unfolding irreducible_def mod_poly_irreducible_altdef gf_poly_def .
 
 lemma deg_gf_pos: "deg_gf TYPE('a :: gf_spec) > 0"
-  unfolding degree_gf_poly [symmetric] using irreducible_gf_poly[where ?'a = 'a]
-  by (auto intro!: Nat.gr0I)
+  unfolding degree_gf_poly [symmetric] sorry
+ (* by (auto intro!: Nat.gr0I)*)
+
 
 lemma gf_poly_nz [simp]: "gf_poly \<noteq> 0"
   using deg_gf_pos[where ?'a = 'a] by (auto simp flip: degree_gf_poly)
@@ -240,44 +237,6 @@ lemma to_gf_eq_0_iff:
   by transfer (auto simp: gf_rel_def cong_def)
 
 
-instantiation gf :: (gf_spec) field
-begin
-
-definition inverse_gf :: "'a gf \<Rightarrow> 'a gf" where
-  "inverse P = to_gf (fst (bezout_coefficients (of_gf P) gf_poly))"
-
-definition divide_gf :: "'a gf \<Rightarrow> 'a gf \<Rightarrow> 'a gf" where
-  "divide_gf P Q = P * inverse Q"
-
-instance proof (standard, goal_cases)
-  case (1 z)
-  thus ?case
-    unfolding inverse_gf_def
-  proof transfer
-    fix P :: "'a mod_ring poly"
-    define Q :: "'a mod_ring poly" where "Q = gf_poly"
-    define B where "B = bezout_coefficients (P mod Q) Q"
-    assume "\<not>gf_rel P 0"
-    hence "\<not>Q dvd P"
-      by (auto simp: gf_rel_def Q_def cong_def)
-    have "[fst B * P + snd B * 0 = fst B * (P mod Q) + snd B * Q] (mod Q)"
-      by (intro cong_mult cong_add cong) (auto simp: cong_def)
-    also have "fst B * (P mod Q) + snd B * Q = gcd (P mod Q) Q"
-      unfolding B_def by (meson bezout_coefficients_fst_snd)
-    also have "Rings.coprime Q P"
-      using \<open>\<not>Q dvd P\<close> unfolding Q_def
-      by (intro prime_elem_imp_coprime irreducible_imp_prime_elem irreducible_gf_poly)
-    hence "gcd (P mod Q) Q = 1"
-      by (simp add: Q_def gcd.commute)
-    finally show "gf_rel (fst B * P) 1"
-      by (simp add: gf_rel_def Q_def)
-  qed
-next
-  show "inverse (0 :: 'a gf) = 0"
-    by (auto simp: inverse_gf_def bezout_coefficients_left_0)
-qed (auto simp: divide_gf_def)
-
-end
 
 
 
