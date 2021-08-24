@@ -6,7 +6,7 @@ begin
 
 context kyber_spec begin
 
-
+text \<open>Some properties of the modulus q.\<close>
 
 lemma q_nonzero: "q \<noteq> 0" 
 using kyber_spec_axioms kyber_spec_def by (smt (z3))
@@ -61,7 +61,8 @@ qed
  
 
 text \<open>Compression only works for \<open>x \<in> Z_q\<close> and outputs an integer 
-  in \<open>{0,\<dots> , 2 d − 1}\<close> , where \<open>d < \<lceil>log_2 (q)\<rceil>\<close> . \<close>
+  in \<open>{0,\<dots> , 2 d − 1}\<close> , where d is a positive integer with \<open>d < \<lceil>log_2 (q)\<rceil>\<close> . 
+  For compression we omit the least important bits. Decompression rescales to the mudulus q.\<close>
 
 definition compress :: "int \<Rightarrow> nat \<Rightarrow> int" where 
   "compress x d = round (real_of_int (2 ^ d * x) / real_of_int q) mod (2^d)"
@@ -116,7 +117,8 @@ proof -
   ultimately show ?thesis by auto
 qed
 
-
+text \<open>Compression is a function from $\mathbb{Z} / q\mathbb{Z}$ to 
+  $\mathbb{Z} / (2^d)\mathbb{Z}$.\<close>
 
 lemma compress_in_range: 
   assumes "x\<in>{0..\<lceil>q-(q/(2*2^d))\<rceil>-1}" 
@@ -141,7 +143,8 @@ qed
 
 text \<open>When does the modulo operation in the compression function change the output? 
   Only when  \<open>x \<ge> \<lceil>q-(q / (2*2^d))\<rceil>\<close>. Then we can determine that the compress function 
-  maps to zero. \<close>
+  maps to zero. This is why we need the \<open>mod+-\<close> in the definition of Compression.
+  Otherwise the error bound would not hold.\<close>
 
 lemma compress_no_mod: 
   assumes "x\<in>{0..\<lceil>q-(q / (2*2^d))\<rceil>-1}" 
@@ -199,7 +202,10 @@ lemma compress_mod:
 unfolding compress_def using compress_2d[OF assms] by simp
 
 
-text \<open>Error after compression and decompression of data.\<close>
+text \<open>Error after compression and decompression of data.
+  To prove the error bound, we distinguish the cases where the \<open>mod+-\<close> is relevant or not.\<close>
+
+text \<open>First let us look at the error bound for no \<open>mod+-\<close> reduction.\<close>
 
 lemma decompress_compress_no_mod: 
   assumes "x\<in>{0..\<lceil>q-(q/(2*2^d))\<rceil>-1}" 
@@ -296,6 +302,7 @@ proof -
   then show ?thesis using decompress_compress_no_mod[OF assms(1) assms(2)] by auto
 qed
 
+text \<open>Now lets look at what happens when the \<open>mod+-\<close> reduction comes into action.\<close>
 
 lemma ceiling_int: 
   "\<lceil>of_int a + b\<rceil> = a + \<lceil>b\<rceil>"
@@ -331,6 +338,9 @@ proof -
   ultimately show ?thesis by auto
 qed
 
+text \<open>Together, we can determine the general error bound on 
+  decompression of compression of the data.
+  This error needs to be small enough not to disturb the encryption and decryption process.\<close>
 
 lemma decompress_compress: 
   assumes "x\<in>{0..<q}"
