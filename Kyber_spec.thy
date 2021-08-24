@@ -328,10 +328,6 @@ lemma of_nat_gf_eq_0_iff [simp]:
 
 
 
-lemma mod_poly_irreducible_gf_7681_256:
-  "mod_poly_irreducible 7681 (Polynomial.monom 1 256 + 1)"
-  sorry
-
 locale kyber_spec =
 fixes n n' q::int
 assumes
