@@ -1,8 +1,8 @@
 theory Compress
 
 imports Kyber_spec
-        "Jordan_Normal_Form.Matrix"
         Mod_Plus_Minus
+        "HOL-Analysis.Finite_Cartesian_Product"
 
 begin
 
@@ -390,13 +390,18 @@ coeffs :: 'a mod_ring poly \<Rightarrow> 'a mod_ring list
 of_gf :: 'a gf \<Rightarrow> 'a mod_ring poly
 *)
 
+
+
+definition map_vector :: "('b \<Rightarrow> 'b) \<Rightarrow> ('b, 'n::finite) vec \<Rightarrow> ('b, 'n::finite) vec" where
+  "map_vector f v = (\<chi> i. f (v $ i))"
+
 text \<open>Compression and decompression of vectors in \<open>\<int>_q[X]/(X^n+1)\<close>.\<close>
 
-definition compress_vec :: "nat \<Rightarrow> 'a gf vec \<Rightarrow> 'a gf vec" where
-  "compress_vec d = map_vec (compress_poly d)"
+definition compress_vec :: "nat \<Rightarrow> ('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
+  "compress_vec d = map_vector (compress_poly d)"
 
-definition decompress_vec :: "nat \<Rightarrow> 'a gf vec \<Rightarrow> 'a gf vec" where
-  "decompress_vec d = map_vec (decompress_poly d)"
+definition decompress_vec :: "nat \<Rightarrow> ('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
+  "decompress_vec d = map_vector (decompress_poly d)"
 
 end
 

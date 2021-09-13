@@ -3,7 +3,6 @@ theory Crypto_Scheme
 imports Kyber_spec
         Compress
         Abs_Gf
-        "Jordan_Normal_Form.Matrix"
 
 begin
 
@@ -17,11 +16,11 @@ typ "'a mod_ring poly"
 typ "'a gf"
 
 
-(* This type corresponds to vectors over \<int>q[X] / (X^n + 1) *) 
-typ "'a gf vec"
+(* This type corresponds to vectors in (\<int>q[X] / (X^n + 1))^k *) 
+typ "('a gf, 'k) vec"
 
-(* This type corresponds to a matrix over \<int>q[X] / (X^n + 1) *) 
-typ "'a gf mat"
+(* This type corresponds to a \<open>k\<times>k\<close> matrix over \<int>q[X] / (X^n + 1) *) 
+typ "(('a gf, 'k) vec, 'k) vec"
 
 
 
@@ -52,23 +51,25 @@ text \<open>In the following the key generation, encryption and decryption algor
 
   \end{itemize}\<close>
 
-definition key_gen :: "nat \<Rightarrow> ('a gf) mat \<Rightarrow> ('a gf) vec \<Rightarrow> 
-                ('a gf) vec \<Rightarrow> ('a gf) vec" where 
-"key_gen dt A s e = compress_vec dt (A *\<^sub>v s + e)"
 
-definition encrypt :: "('a gf) vec \<Rightarrow> ('a gf) mat \<Rightarrow> ('a gf) vec \<Rightarrow> 
-                ('a gf) vec \<Rightarrow> ('a gf) \<Rightarrow>
+
+definition key_gen :: "nat \<Rightarrow> (('a gf, 'k) vec, 'k) vec \<Rightarrow> ('a gf, 'k) vec \<Rightarrow> 
+                ('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where 
+"key_gen dt A s e = compress_vec dt (A *v s + e)"
+
+definition encrypt :: "('a gf, 'k) vec \<Rightarrow> (('a gf, 'k) vec, 'k) vec \<Rightarrow> ('a gf, 'k) vec \<Rightarrow> 
+                ('a gf, 'k) vec \<Rightarrow> ('a gf) \<Rightarrow>
                 nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow>
-                'a gf \<Rightarrow> ('a gf vec) * ('a gf)" where
+                'a gf \<Rightarrow> (('a gf, 'k) vec) * ('a gf)" where
 "encrypt t A r e1 e2 dt du dv m = 
-  (compress_vec du ((transpose_mat A) *\<^sub>v r + e1),  
-   compress_poly dv ((decompress_vec dt t) \<bullet> r + e2 + 
+  (compress_vec du ((transpose A) *v r + e1),  
+   compress_poly dv (scalar_product (decompress_vec dt t) r + e2 + 
       to_module (round((real_of_int q)/2)) * m)) "
 
 
-definition decrypt :: "('a gf) vec \<Rightarrow> ('a gf) \<Rightarrow> ('a gf) vec \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a gf" where
+definition decrypt :: "('a gf, 'k) vec \<Rightarrow> ('a gf) \<Rightarrow> ('a gf, 'k) vec \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a gf" where
   "decrypt u v s du dv = compress_poly 1 
-      ((decompress_poly dv v) - s \<bullet> (decompress_vec du u))"
+      ((decompress_poly dv v) - scalar_product s (decompress_vec du u))"
 
 
 (*TODO
@@ -92,13 +93,13 @@ fun f_int_to_poly :: "(int \<Rightarrow> int) \<Rightarrow> ('a gf) \<Rightarrow
 fun mod_plus_minus_poly :: "('a gf) \<Rightarrow> ('a gf)" where
   "mod_plus_minus_poly p = f_int_to_poly (\<lambda>x. x mod+- q) p"
 
-fun mod_plus_minus_vec :: "('a gf) vec \<Rightarrow> ('a gf) vec" where
-  "mod_plus_minus_vec p = map_vec mod_plus_minus_poly p"
+fun mod_plus_minus_vec :: "('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
+  "mod_plus_minus_vec p = map_vector mod_plus_minus_poly p"
 
 fun compress_error_poly :: "nat \<Rightarrow> ('a gf) \<Rightarrow> ('a gf)" where
   "compress_error_poly d y = mod_plus_minus_poly (y - decompress_poly d (compress_poly d y))"
 
-fun compress_error_vec :: "nat \<Rightarrow> ('a gf) vec \<Rightarrow> ('a gf) vec" where
+fun compress_error_vec :: "nat \<Rightarrow> ('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
   "compress_error_vec d y = mod_plus_minus_vec (y - decompress_vec d (compress_vec d y))"
 
 
@@ -118,22 +119,24 @@ lemma kyber_correct:
   fixes A s r e e1 e2 dt du dv ct cu cv t u v
   assumes "t = key_gen dt A s e"
           "(u,v) = encrypt t A r e1 e2 dt du dv m"
-          "ct = compress_error_vec dt (A *\<^sub>v s + e)"
-          "cu = compress_error_vec du ((transpose_mat A) *\<^sub>v r + e1)"
-          "cv = compress_error_poly dv ((decompress_vec dt t) \<bullet> r + e2 + 
+          "ct = compress_error_vec dt (A *v s + e)"
+          "cu = compress_error_vec du ((transpose A) *v r + e1)"
+          "cv = compress_error_poly dv (scalar_product (decompress_vec dt t) r + e2 + 
             to_module (round((real_of_int q)/2)) * m)"
-          "abs_infty_poly (e \<bullet> r + e2 + cv - s \<bullet> e1 + ct \<bullet> r - s \<bullet> cu) < round (of_int q / 4)"
+          "abs_infty_poly (scalar_product e r + e2 + cv - scalar_product s e1 + 
+            scalar_product ct r - scalar_product s cu) < round (of_int q / 4)"
   shows "decrypt u v s du dv = m"
 proof -
-  have "t = A *\<^sub>v s + e + ct " using assms unfolding key_gen_def sorry
-  have "u = (transpose_mat A) *\<^sub>v r + e1 + cu" using assms unfolding encrypt_def sorry
-  have "v = (decompress_vec dt t) \<bullet> r + e2 + to_module (round((real_of_int q)/2)) * m + cv"
+  have "t = A *v s + e + ct " using assms unfolding key_gen_def sorry
+  have "u = (transpose A) *v r + e1 + cu" using assms unfolding encrypt_def sorry
+  have "v = scalar_product (decompress_vec dt t) r + e2 + 
+            to_module (round((real_of_int q)/2)) * m + cv"
     using assms unfolding encrypt_def sorry
-  have "v -  s \<bullet> u = e \<bullet> r + e2 + to_module (round((real_of_int q)/2)) * m 
-          + cv - s \<bullet> e1 + ct \<bullet> r - s \<bullet> cu" sorry
-  let ?w = "e \<bullet> r + e2 + cv - s \<bullet> e1 + ct \<bullet> r - s \<bullet> cu"
+  have "v -  scalar_product s u = scalar_product e r + e2 + to_module (round((real_of_int q)/2)) * m 
+          + cv - scalar_product s e1 + scalar_product ct r - scalar_product s cu" sorry
+  let ?w = "scalar_product e r + e2 + cv - scalar_product s e1 + scalar_product ct r - scalar_product s cu"
   let ?m' = "decrypt u v s du dv"
-  have "abs_infty_poly (v -  s \<bullet> u - to_module (round((real_of_int q)/2)) * ?m') \<le> 
+  have "abs_infty_poly (v -  scalar_product s u - to_module (round((real_of_int q)/2)) * ?m') \<le> 
         round (of_int q / 4)" sorry
   then have "abs_infty_poly (?w + to_module (round((real_of_int q)/2)) * m - 
               to_module (round((real_of_int q)/2)) * ?m') \<le> round (of_int q / 4)" sorry
@@ -142,7 +145,7 @@ proof -
   then show ?thesis sorry
 qed
 
-find_theorems name: triang
+
 
 lemma kyber_one_minus_delta_correct:
   assumes "delta = P ()"

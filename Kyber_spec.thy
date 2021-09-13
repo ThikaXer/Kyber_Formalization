@@ -298,12 +298,14 @@ lemma of_nat_gf_eq_0_iff [simp]:
 
 
 locale kyber_spec =
-fixes n n' q::int
+fixes n n' q k::int
 assumes
 "n   = 256"
 "n'  = 9"
 "q   = 7681"
+"k = 3"
 assumes CARD_a: "int (CARD('a :: gf_spec)) = q"
+assumes CARD_k: "int (CARD('k :: finite)) = k"
 assumes n_gt_1: "n > 1"
 assumes gf_poly'_eq: "gf_poly' TYPE('a) = Polynomial.monom 1 (nat n) + 1"
 
