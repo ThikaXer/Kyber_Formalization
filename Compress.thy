@@ -2,6 +2,7 @@ theory Compress
 
 imports Kyber_spec
         "Jordan_Normal_Form.Matrix"
+        Mod_Plus_Minus
 
 begin
 
@@ -23,31 +24,11 @@ using kyber_spec_axioms kyber_spec_def
 by (metis prime_card_int)
 
 
-text \<open>To define the Compress and Decompress functions, 
-  we need some special form of modulo. It returns the 
-  representation of the equivalence class in \<open>[-q div 2, q div 2]\<close>.\<close>
-
-definition mod_plus_minus :: "int \<Rightarrow> int \<Rightarrow> int" (infixl "mod+-" 70) where 
-  "m mod+- b = ((m + \<lfloor> real_of_int b / 2 \<rfloor>) mod b) - \<lfloor> real_of_int b / 2 \<rfloor>"
- 
-lemma mod_range: "b>0 \<Longrightarrow> (a::int) mod (b::int) \<in> {0..b-1}"
-using range_mod by auto
-
-lemma mod_rangeE: 
-  assumes "(a::int)\<in>{0..<b}"
-  shows "a = a mod b"
-using assms by auto
+text \<open>Properties of the \<open>mod+-\<close> function.\<close>
 
 lemma two_mid_lt_q:
   "2 * \<lfloor>real_of_int q / 2\<rfloor> < q" 
 using oddE[OF prime_odd_int[OF q_prime q_gt_two]] by fastforce
-
-
-lemma mod_plus_minus_range: 
-  assumes "b>0"
-  shows "y mod+- b \<in> {-\<lfloor>b/2\<rfloor>..\<lfloor>b/2\<rfloor>}"
-unfolding mod_plus_minus_def using mod_range[OF assms, of "(y + \<lfloor>real_of_int b / 2\<rfloor>)"]
-by (auto)(linarith)
 
 lemma mod_plus_minus_range_q: 
   assumes "y \<in> {-\<lfloor>q/2\<rfloor>..\<lfloor>q/2\<rfloor>}"
@@ -368,9 +349,9 @@ definition compress_poly :: "nat \<Rightarrow> 'a gf \<Rightarrow> 'a gf" where
   "compress_poly d = 
         to_gf \<circ>
         Poly \<circ>
-        (map Abs_mod_ring) \<circ>
+        (map of_int_mod_ring) \<circ>
         (map (compress d)) \<circ>
-        (map Rep_mod_ring) \<circ>
+        (map to_int_mod_ring) \<circ>
         coeffs \<circ>
         of_gf"
 
@@ -379,9 +360,9 @@ Types:
 
 to_gf :: 'a mod_ring poly \<Rightarrow> 'a gf
 Poly ::  'a mod_ring list \<Rightarrow> 'a mod_ring poly
-map Abs_mod_ring :: int list \<Rightarrow> 'a mod_ring list
+map of_int_mod_ring :: int list \<Rightarrow> 'a mod_ring list
 map compress :: int list \<Rightarrow> int list
-map Rep_mod_ring :: 'a mod_ring list \<Rightarrow> int list
+map to_int_mod_ring :: 'a mod_ring list \<Rightarrow> int list
 coeffs :: 'a mod_ring poly \<Rightarrow> 'a mod_ring list
 of_gf :: 'a gf \<Rightarrow> 'a mod_ring poly
 
@@ -391,9 +372,9 @@ definition decompress_poly :: "nat \<Rightarrow> 'a gf \<Rightarrow> 'a gf" wher
   "decompress_poly d = 
         to_gf \<circ>
         Poly \<circ>
-        (map Abs_mod_ring) \<circ>
+        (map of_int_mod_ring) \<circ>
         (map (decompress d)) \<circ>
-        (map Rep_mod_ring) \<circ>
+        (map to_int_mod_ring) \<circ>
         coeffs \<circ>
         of_gf"
 
@@ -402,9 +383,9 @@ Types:
 
 to_gf :: 'a mod_ring poly \<Rightarrow> 'a gf
 Poly ::  'a mod_ring list \<Rightarrow> 'a mod_ring poly
-map Abs_mod_ring :: int list \<Rightarrow> 'a mod_ring list
+map of_int_mod_ring :: int list \<Rightarrow> 'a mod_ring list
 map compress :: int list \<Rightarrow> int list
-map Rep_mod_ring :: 'a mod_ring list \<Rightarrow> int list
+map to_int_mod_ring :: 'a mod_ring list \<Rightarrow> int list
 coeffs :: 'a mod_ring poly \<Rightarrow> 'a mod_ring list
 of_gf :: 'a gf \<Rightarrow> 'a mod_ring poly
 *)

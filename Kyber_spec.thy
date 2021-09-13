@@ -143,16 +143,26 @@ lemma equivp_gf_rel: "equivp gf_rel"
 quotient_type (overloaded) 'a gf = "'a :: gf_spec mod_ring poly" / gf_rel
   by (rule equivp_gf_rel)
 
+(*Changed from "\<lambda>x. (x :: 'q mod_ring poly)" *)
+
+
 (* reduction of a polynomial in \<int>q[X] modulo X^n + 1 *)
 lift_definition to_gf :: "'a :: gf_spec mod_ring poly \<Rightarrow> 'a gf" 
-  is "\<lambda>x. (x :: 'q mod_ring poly)" .
+  is "\<lambda>x. (x :: 'a mod_ring poly)" .
+
+
+
+(*Is this correct?? Before:
+of_gf :: "'a :: gf_spec gf \<Rightarrow> 'a mod_ring poly" 
+*)
+
 
 (* canonical representative in \<int>q[X] of an element of GF(q,n) *)
-lift_definition of_gf :: "'a :: gf_spec gf \<Rightarrow> 'a mod_ring poly" 
+lift_definition of_gf :: "'a gf \<Rightarrow> 'a :: gf_spec mod_ring poly" 
   is "\<lambda>P::'a mod_ring poly. P mod gf_poly"
   by (simp add: gf_rel_def cong_def)
 
-(* analogous: conversion between 'q mod_ring and int *)
+(* analogous: conversion between 'a mod_ring and int *)
 term "of_int_mod_ring :: int \<Rightarrow> 'a :: finite mod_ring"
 term "to_int_mod_ring :: 'a :: finite mod_ring \<Rightarrow> int"
 
