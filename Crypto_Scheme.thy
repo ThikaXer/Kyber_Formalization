@@ -90,28 +90,24 @@ fun f_int_to_poly :: "(int \<Rightarrow> int) \<Rightarrow> ('a gf) \<Rightarrow
         coeffs \<circ>
         of_gf"
 
-fun mod_plus_minus_poly :: "('a gf) \<Rightarrow> ('a gf)" where
+definition mod_plus_minus_poly :: "('a gf) \<Rightarrow> ('a gf)" where
   "mod_plus_minus_poly p = f_int_to_poly (\<lambda>x. x mod+- q) p"
 
-fun mod_plus_minus_vec :: "('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
+definition mod_plus_minus_vec :: "('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
   "mod_plus_minus_vec p = map_vector mod_plus_minus_poly p"
 
-fun compress_error_poly :: "nat \<Rightarrow> ('a gf) \<Rightarrow> ('a gf)" where
+definition compress_error_poly :: "nat \<Rightarrow> ('a gf) \<Rightarrow> ('a gf)" where
   "compress_error_poly d y = mod_plus_minus_poly (y - decompress_poly d (compress_poly d y))"
 
-fun compress_error_vec :: "nat \<Rightarrow> ('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
+definition compress_error_vec :: "nat \<Rightarrow> ('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
   "compress_error_vec d y = mod_plus_minus_vec (y - decompress_vec d (compress_vec d y))"
 
 
 
 
-
-
-
-
-(*TODO: show that abs_infty_poly is indeed a norm on 'a gf and show triangle inequality!*)
-
-
+text \<open>We now want to show the deterministic correctness of the algorithm. 
+  That means, after choosing the variables correctly, generating the public key, encrypting 
+  and decrypting, we get back the original message.\<close>
 
 
 
@@ -127,9 +123,10 @@ lemma kyber_correct:
             scalar_product ct r - scalar_product s cu) < round (of_int q / 4)"
   shows "decrypt u v s du dv = m"
 proof -
-  have "t = A *v s + e + ct " using assms unfolding key_gen_def sorry
-  have "u = (transpose A) *v r + e1 + cu" using assms unfolding encrypt_def sorry
-  have "v = scalar_product (decompress_vec dt t) r + e2 + 
+  have "decompress_vec dt t = A *v s + e + ct " 
+    using assms(1) assms(3) unfolding compress_error_vec_def key_gen_def sorry 
+  have "decompress_vec du u = (transpose A) *v r + e1 + cu" using assms unfolding encrypt_def sorry
+  have "decompress_poly dv v = scalar_product (decompress_vec dt t) r + e2 + 
             to_module (round((real_of_int q)/2)) * m + cv"
     using assms unfolding encrypt_def sorry
   have "v -  scalar_product s u = scalar_product e r + e2 + to_module (round((real_of_int q)/2)) * m 

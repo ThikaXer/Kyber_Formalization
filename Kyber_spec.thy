@@ -300,16 +300,34 @@ lemma of_nat_gf_eq_0_iff [simp]:
 locale kyber_spec =
 fixes n n' q k::int
 assumes
-"n   = 256"
-"n'  = 9"
-"q   = 7681"
-"k = 3"
+n_def: "n   = 256" and
+n'_def: "n'  = 9" and 
+q_def: "q   = 7681" and
+k_def: "k = 3"
 assumes CARD_a: "int (CARD('a :: gf_spec)) = q"
 assumes CARD_k: "int (CARD('k :: finite)) = k"
 assumes n_gt_1: "n > 1"
 assumes gf_poly'_eq: "gf_poly' TYPE('a) = Polynomial.monom 1 (nat n) + 1"
 
 begin
+text \<open>Some properties of the modulus q.\<close>
+
+lemma q_nonzero: "q \<noteq> 0" 
+using kyber_spec_axioms kyber_spec_def by (smt (z3))
+
+lemma q_gt_zero: "q>0" 
+using kyber_spec_axioms kyber_spec_def by (smt (z3))
+
+lemma q_gt_two: "q>2"
+using kyber_spec_axioms kyber_spec_def by (smt (z3))
+
+lemma q_odd: "odd q"
+using kyber_spec_axioms kyber_spec_def
+by (metis odd_numeral)
+
+lemma q_prime: "prime q"
+using kyber_spec_axioms kyber_spec_def
+by (metis prime_card_int)
 
 end
 end

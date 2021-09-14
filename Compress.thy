@@ -8,21 +8,6 @@ begin
 
 context kyber_spec begin
 
-text \<open>Some properties of the modulus q.\<close>
-
-lemma q_nonzero: "q \<noteq> 0" 
-using kyber_spec_axioms kyber_spec_def by (smt (z3))
-
-lemma q_gt_zero: "q>0" 
-using kyber_spec_axioms kyber_spec_def by (smt (z3))
-
-lemma q_gt_two: "q>2"
-using kyber_spec_axioms kyber_spec_def by (smt (z3))
-
-lemma q_prime: "prime q"
-using kyber_spec_axioms kyber_spec_def
-by (metis prime_card_int)
-
 
 text \<open>Properties of the \<open>mod+-\<close> function.\<close>
 
@@ -392,7 +377,7 @@ of_gf :: 'a gf \<Rightarrow> 'a mod_ring poly
 
 
 
-definition map_vector :: "('b \<Rightarrow> 'b) \<Rightarrow> ('b, 'n::finite) vec \<Rightarrow> ('b, 'n::finite) vec" where
+definition map_vector :: "('b \<Rightarrow> 'b) \<Rightarrow> ('b, 'n) vec \<Rightarrow> ('b, 'n::finite) vec" where
   "map_vector f v = (\<chi> i. f (v $ i))"
 
 text \<open>Compression and decompression of vectors in \<open>\<int>_q[X]/(X^n+1)\<close>.\<close>
