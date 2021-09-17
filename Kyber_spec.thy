@@ -173,7 +173,6 @@ term "poly.coeff :: real poly \<Rightarrow> nat \<Rightarrow> real" (* n-ter Koe
 term poly (* Auswertungshomomorphismus *)
 term map_poly (* Wende Funktion f auf alle Koeffizienten an (Vorsicht: f 0 sollte 0 sein *)
 
-find_consts "'a poly"
 
 
 

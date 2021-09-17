@@ -90,20 +90,52 @@ fun f_int_to_poly :: "(int \<Rightarrow> int) \<Rightarrow> ('a gf) \<Rightarrow
         coeffs \<circ>
         of_gf"
 
+(*
 definition mod_plus_minus_poly :: "('a gf) \<Rightarrow> ('a gf)" where
   "mod_plus_minus_poly p = f_int_to_poly (\<lambda>x. x mod+- q) p"
 
 definition mod_plus_minus_vec :: "('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
   "mod_plus_minus_vec p = map_vector mod_plus_minus_poly p"
+*) 
 
-definition compress_error_poly :: "nat \<Rightarrow> ('a gf) \<Rightarrow> ('a gf)" where
-  "compress_error_poly d y = mod_plus_minus_poly (y - decompress_poly d (compress_poly d y))"
+definition compress_error_poly :: "nat \<Rightarrow> 'a gf \<Rightarrow> 'a gf" where
+  "compress_error_poly d y = decompress_poly d (compress_poly d y) - y"
 
 definition compress_error_vec :: "nat \<Rightarrow> ('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
-  "compress_error_vec d y = mod_plus_minus_vec (y - decompress_vec d (compress_vec d y))"
+  "compress_error_vec d y = decompress_vec d (compress_vec d y) - y"
+
+text \<open>Get the i-th entry of vector and j-th coefficient of polynomial\<close>
+
+definition vec_coeff :: "('a gf) \<Rightarrow> ('a mod_ring)" where 
+  "vec_coeff v = TO_DO"
 
 
+lemma scalar_product_linear_left:
+  "scalar_product (a+b) c = scalar_product a c + scalar_product b (c :: ('a gf, 'k) vec)"
+unfolding scalar_product_def
+by auto (metis (no_types, lifting) distrib_right sum.cong sum.distrib)
 
+lemma scalar_product_linear_right:
+  "scalar_product a (b+c) = scalar_product a b + scalar_product a (c :: ('a gf, 'k) vec)"
+unfolding scalar_product_def
+by auto (metis (no_types, lifting) distrib_left sum.cong sum.distrib)
+
+lemma scalar_product_assoc:
+  "scalar_product (A *v s) (r :: ('a gf, 'k) vec ) = scalar_product s (r v* A)"
+unfolding scalar_product_def matrix_vector_mult_def vector_matrix_mult_def
+proof auto
+  have "(\<Sum>i\<in>UNIV. (\<Sum>j\<in>UNIV. (vec_nth (vec_nth A i) j) * (vec_nth s j)) * (vec_nth r i)) = 
+        (\<Sum>i\<in>UNIV. (\<Sum>j\<in>UNIV. (vec_nth (vec_nth A i) j) * (vec_nth s j) * (vec_nth r i)))"
+    by (simp add: sum_distrib_right)
+  also have "\<dots> = (\<Sum>j\<in>UNIV. (\<Sum>i\<in>UNIV. (vec_nth (vec_nth A i) j) * (vec_nth s j) * (vec_nth r i)))"
+    using sum.swap .
+  also have "\<dots> = (\<Sum>j\<in>UNIV. (\<Sum>i\<in>UNIV. (vec_nth s j) * (vec_nth (vec_nth A i) j) * (vec_nth r i)))"
+    by (metis (no_types, lifting) mult_commute_abs sum.cong)
+  also have "\<dots> = (\<Sum>j\<in>UNIV. (vec_nth s j) * (\<Sum>i\<in>UNIV. (vec_nth (vec_nth A i) j) * (vec_nth r i)))"
+    by (metis (no_types, lifting) mult.assoc sum.cong sum_distrib_left)
+  finally show "(\<Sum>i\<in>UNIV. (\<Sum>j\<in>UNIV. (vec_nth (vec_nth A i) j) * (vec_nth s j)) * (vec_nth r i)) =
+    (\<Sum>j\<in>UNIV. (vec_nth s j) * (\<Sum>i\<in>UNIV. (vec_nth (vec_nth A i) j) * (vec_nth r i)))" by blast
+qed
 
 text \<open>We now want to show the deterministic correctness of the algorithm. 
   That means, after choosing the variables correctly, generating the public key, encrypting 
@@ -121,28 +153,56 @@ lemma kyber_correct:
             to_module (round((real_of_int q)/2)) * m)"
           "abs_infty_poly (scalar_product e r + e2 + cv - scalar_product s e1 + 
             scalar_product ct r - scalar_product s cu) < round (of_int q / 4)"
+          "set ((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m) \<subseteq> {0,1}"
   shows "decrypt u v s du dv = m"
 proof -
-  have "decompress_vec dt t = A *v s + e + ct " 
-    using assms(1) assms(3) unfolding compress_error_vec_def key_gen_def sorry 
-  have "decompress_vec du u = (transpose A) *v r + e1 + cu" using assms unfolding encrypt_def sorry
-  have "decompress_poly dv v = scalar_product (decompress_vec dt t) r + e2 + 
+  have t_correct: "decompress_vec dt t = A *v s + e + ct " 
+    using assms(1) assms(3) unfolding compress_error_vec_def key_gen_def by simp
+  have u_correct: "decompress_vec du u = (transpose A) *v r + e1 + cu" 
+    using assms(2) assms(4) unfolding encrypt_def compress_error_vec_def by simp
+  have v_correct: "decompress_poly dv v = scalar_product (decompress_vec dt t) r + e2 + 
             to_module (round((real_of_int q)/2)) * m + cv"
-    using assms unfolding encrypt_def sorry
-  have "v -  scalar_product s u = scalar_product e r + e2 + to_module (round((real_of_int q)/2)) * m 
-          + cv - scalar_product s e1 + scalar_product ct r - scalar_product s cu" sorry
-  let ?w = "scalar_product e r + e2 + cv - scalar_product s e1 + scalar_product ct r - scalar_product s cu"
-  let ?m' = "decrypt u v s du dv"
-  have "abs_infty_poly (v -  scalar_product s u - to_module (round((real_of_int q)/2)) * ?m') \<le> 
-        round (of_int q / 4)" sorry
+    using assms(2) assms(5) unfolding encrypt_def compress_error_poly_def by simp
+  have v_correct': "decompress_poly dv v = scalar_product (A *v s + e) r + e2 + 
+            to_module (round((real_of_int q)/2)) * m + cv + scalar_product ct r"
+   using t_correct v_correct by (auto simp add: scalar_product_linear_left)
+  let ?t = "decompress_vec dt t"
+  let ?u = "decompress_vec du u"
+  let ?v = "decompress_poly dv v"
+  define w where "w = scalar_product e r + e2 + cv - scalar_product s e1 + 
+            scalar_product ct r - scalar_product s cu"
+  have w_length: "abs_infty_poly w < round (of_int q / 4)" unfolding w_def using assms(6) sorry
+  have vsu: "?v - scalar_product s ?u = 
+        w + to_module (round((real_of_int q)/2)) * m" 
+    unfolding w_def by (auto simp add: u_correct v_correct' scalar_product_linear_left 
+                       scalar_product_linear_right scalar_product_assoc)
+  define m' where "m' = decrypt u v s du dv"
+  have decompress_01: "decompress 1 a = round(real_of_int q / 2) * a" if "a\<in>{0,1}" for a
+    unfolding decompress_def using that by auto 
+  have "decompress_poly 1  m' = to_module (round((real_of_int q)/2)) * m'" 
+
+unfolding decompress_poly_def using decompress_01 assms(7)
+
+  proof -
+    have coeff_01: "((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m) ! i \<in> {0,1}" for i 
+      using assms(7) 
+    
+    have "decompress 1 (((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m') ! i) = 
+      round(real_of_int q / 2) * (((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m) ! i)" for i
+    using decompress_01[OF coeff_01] sorry 
+  qed
+      sorry
+  have "abs_infty_poly (?v - scalar_product s ?u - to_module (round((real_of_int q)/2)) * m') \<le> 
+        round (of_int q / 4)"
+    using vsu assms(6) decompress_compress apply simp sorry
   then have "abs_infty_poly (?w + to_module (round((real_of_int q)/2)) * m - 
-              to_module (round((real_of_int q)/2)) * ?m') \<le> round (of_int q / 4)" sorry
-  then have "abs_infty_poly (to_module (round((real_of_int q)/2)) * (m - ?m')) < 
+              to_module (round((real_of_int q)/2)) * m') \<le> round (of_int q / 4)" sorry
+  then have "abs_infty_poly (to_module (round((real_of_int q)/2)) * (m - m')) < 
               2 * round (of_int q / 4)" using abs_infty_poly_triangle_ineq sorry
   then show ?thesis sorry
 qed
 
-
+find_theorems "set _ " "_ !_"
 
 lemma kyber_one_minus_delta_correct:
   assumes "delta = P ()"
