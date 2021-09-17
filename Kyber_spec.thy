@@ -150,8 +150,6 @@ quotient_type (overloaded) 'a gf = "'a :: gf_spec mod_ring poly" / gf_rel
 lift_definition to_gf :: "'a :: gf_spec mod_ring poly \<Rightarrow> 'a gf" 
   is "\<lambda>x. (x :: 'a mod_ring poly)" .
 
-
-
 (*Is this correct?? Before:
 of_gf :: "'a :: gf_spec gf \<Rightarrow> 'a mod_ring poly" 
 *)
@@ -161,6 +159,18 @@ of_gf :: "'a :: gf_spec gf \<Rightarrow> 'a mod_ring poly"
 lift_definition of_gf :: "'a gf \<Rightarrow> 'a :: gf_spec mod_ring poly" 
   is "\<lambda>P::'a mod_ring poly. P mod gf_poly"
   by (simp add: gf_rel_def cong_def)
+
+
+lemma of_gf_to_gf: "of_gf (to_gf (x)) = x mod gf_poly"
+  apply (auto simp add: of_gf_def to_gf_def)
+  by (metis of_gf.abs_eq of_gf.rep_eq)
+
+
+lemma to_gf_of_gf: "to_gf (of_gf (x)) = x"
+  apply (auto simp add: of_gf_def to_gf_def)
+  by (metis (mono_tags, lifting) Quotient3_abs_rep Quotient3_gf Quotient3_rel cong_def gf_rel_def mod_mod_trivial)
+
+lemma eq_to_gf: "x = y \<Longrightarrow> to_gf x = to_gf y" by auto
 
 (* analogous: conversion between 'a mod_ring and int *)
 term "of_int_mod_ring :: int \<Rightarrow> 'a :: finite mod_ring"
@@ -296,6 +306,10 @@ lemma of_nat_gf_eq_0_iff [simp]:
 
 
 
+
+
+
+
 locale kyber_spec =
 fixes n n' q k::int
 assumes
@@ -327,6 +341,22 @@ by (metis odd_numeral)
 lemma q_prime: "prime q"
 using kyber_spec_axioms kyber_spec_def
 by (metis prime_card_int)
+
+text \<open>Properties in the ring \<open>'a gf\<close>. A good representative has degree up to n.\<close>
+lemma deg_mod_gf_poly:
+  assumes "degree x < deg_gf TYPE('a)"
+  shows "x mod (gf_poly :: 'a mod_ring poly) = x"
+using mod_poly_less[of x gf_poly] unfolding deg_gf_def
+by (metis assms degree_gf_poly) 
+
+lemma of_gf_to_gf': 
+  assumes "degree x < deg_gf TYPE('a)"
+  shows "of_gf (to_gf x) = (x ::'a mod_ring poly)"
+using deg_mod_gf_poly[OF assms] of_gf_to_gf[of x] by simp
+
+
+
+
 
 end
 end

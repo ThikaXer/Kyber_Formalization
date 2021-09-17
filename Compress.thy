@@ -353,6 +353,9 @@ of_gf :: 'a gf \<Rightarrow> 'a mod_ring poly
 
 *)
 
+
+lemma "compress_poly d (to_gf (Poly xs)) = to_gf (Poly (map (compress d \<circ> of_int) xs))"
+
 definition decompress_poly :: "nat \<Rightarrow> 'a gf \<Rightarrow> 'a gf" where
   "decompress_poly d = 
         to_gf \<circ>

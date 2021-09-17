@@ -137,6 +137,11 @@ proof auto
     (\<Sum>j\<in>UNIV. (vec_nth s j) * (\<Sum>i\<in>UNIV. (vec_nth (vec_nth A i) j) * (vec_nth r i)))" by blast
 qed
 
+text \<open>Lemma about coeff Poly\<close>
+
+lemma set_coeff_Poly: "set ((coeffs \<circ> Poly) xs) \<subseteq> set xs" 
+by auto (metis append.assoc append_Cons in_set_conv_decomp split_strip_while_append) 
+
 text \<open>We now want to show the deterministic correctness of the algorithm. 
   That means, after choosing the variables correctly, generating the public key, encrypting 
   and decrypting, we get back the original message.\<close>
@@ -154,6 +159,7 @@ lemma kyber_correct:
           "abs_infty_poly (scalar_product e r + e2 + cv - scalar_product s e1 + 
             scalar_product ct r - scalar_product s cu) < round (of_int q / 4)"
           "set ((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m) \<subseteq> {0,1}"
+          "degree (of_gf m) < n"
   shows "decrypt u v s du dv = m"
 proof -
   have t_correct: "decompress_vec dt t = A *v s + e + ct " 
@@ -179,17 +185,50 @@ proof -
   define m' where "m' = decrypt u v s du dv"
   have decompress_01: "decompress 1 a = round(real_of_int q / 2) * a" if "a\<in>{0,1}" for a
     unfolding decompress_def using that by auto 
-  have "decompress_poly 1  m' = to_module (round((real_of_int q)/2)) * m'" 
-
-unfolding decompress_poly_def using decompress_01 assms(7)
-
+  have "decompress_poly 1  m' = to_module (round((real_of_int q)/2)) * m'"
   proof -
-    have coeff_01: "((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m) ! i \<in> {0,1}" for i 
-      using assms(7) 
+    have "poly.coeff (of_gf m') i \<in> {0,1}" for i unfolding m'_def decrypt_def  sorry
+    have "poly.coeff (of_gf (decompress_poly 1 m')) i = 
+          poly.coeff (of_gf (to_module (round((real_of_int q)/2)) * m')) i"
+    for i 
+    unfolding decompress_poly_def using of_gf_to_gf'[of "Poly
+           (map (of_int_mod_ring \<circ> (decompress (Suc 0) \<circ> to_int_mod_ring))
+             (coeffs (of_gf m')))"] apply (auto simp add: of_gf_to_gf') sorry
+    then have eq: "of_gf (decompress_poly 1 m') = of_gf (to_module (round((real_of_int q)/2)) * m')"
+      by (simp add: poly_eq_iff)
+    show ?thesis using arg_cong[OF eq, of "to_gf"] to_gf_of_gf[of "decompress_poly 1 m'"] 
+      to_gf_of_gf[of "to_module (round (real_of_int q / 2)) * m'"] by auto
+  qed
+
+
+
+
+        sorry
+    then have "decompress 1 m' = round(real_of_int q / 2) * m'" (*case distinction m' = 0,1*)
+
+
+
+
+
+    have coeff_01: "((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m) ! i \<in> {0,1}" 
+      if "i\<in>{0..degree (of_gf m)}"for i 
+    proof (cases "m=0")
+    case True
+      then have "of_gf m = 0" by auto
+      then have "coeffs (of_gf m) " sorry
+      then show ?thesis sorry
+    next
+    case False
+    then show ?thesis sorry
+    qed
+      
+      using assms(7) coeff_in_coeffs sorry
+    
     
     have "decompress 1 (((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m') ! i) = 
-      round(real_of_int q / 2) * (((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m) ! i)" for i
-    using decompress_01[OF coeff_01] sorry 
+      round(real_of_int q / 2) * (((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m') ! i)" 
+      if "i\<in>{0..degree (of_gf m)}"for i 
+    using decompress_01[OF coeff_01[OF that]] sorry 
   qed
       sorry
   have "abs_infty_poly (?v - scalar_product s ?u - to_module (round((real_of_int q)/2)) * m') \<le> 
@@ -202,7 +241,7 @@ unfolding decompress_poly_def using decompress_01 assms(7)
   then show ?thesis sorry
 qed
 
-find_theorems "set _ " "_ !_"
+find_theorems "set (coeffs _)"
 
 lemma kyber_one_minus_delta_correct:
   assumes "delta = P ()"
