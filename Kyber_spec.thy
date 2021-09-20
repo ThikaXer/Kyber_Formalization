@@ -355,7 +355,8 @@ lemma of_gf_to_gf':
 using deg_mod_gf_poly[OF assms] of_gf_to_gf[of x] by simp
 
 
-
+definition to_module :: "int \<Rightarrow> 'a gf" where
+  "to_module x = to_gf [: of_int_mod_ring x :]"
 
 
 end

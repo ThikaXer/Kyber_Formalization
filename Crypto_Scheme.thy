@@ -28,8 +28,7 @@ typ "(('a gf, 'k) vec, 'k) vec"
 context kyber_spec
 begin
 
-definition to_module :: "int \<Rightarrow> 'a gf" where
-  "to_module x = to_gf [: of_int_mod_ring x :]"
+
 
 
 text \<open>In the following the key generation, encryption and decryption algorithms 
@@ -223,10 +222,58 @@ proof -
     by auto
   text \<open>Finally show that $m-m'$ is small enough. 
     Since we know that m and m' have integer coefficients, it is enough to show that 
-    \<open>abs_infty_poly (m-m') <1\<close>.\<close>              
-  then have "(round((real_of_int q)/2)) * abs_infty_poly ( (m - m')) < 
-              2 * round (real_of_int q / 4)" using abs_infty_poly_scale
-  then show ?thesis unfolding decrypt_def m'_def sorry
+    \<open>abs_infty_poly (m-m') <1\<close>.\<close>         
+  then have "(round((real_of_int q)/2)) * abs_infty_poly (m - m') < 
+              2 * round (real_of_int q / 4)" 
+    using abs_infty_poly_scale[of "round((real_of_int q)/2)" "m-m'"]
+    by (smt (verit, best) abs_infty_poly_pos minus_mult_minus mult_minus_right)
+  moreover have "round((real_of_int q)/2) > 0" using q_gt_two
+    by (smt (z3) divide_less_eq_1_pos of_int_add of_int_hom.hom_one round_mono round_of_int)
+  ultimately have " abs_infty_poly (m - m') < 2 * round (real_of_int q / 4)
+      / (round((real_of_int q)/2))" 
+    by (metis mult.commute of_int_hom.hom_mult of_int_less_iff of_int_pos pos_less_divide_eq)
+  also have "\<dots> = 2 * round (real_of_int q / 4) / (q+1) * 2"
+  proof -
+    have one: "round((real_of_int q)/2) = (q+1)/2" using q_odd unfolding round_def
+    by (smt (verit, ccfv_threshold) add_divide_distrib even_plus_one_iff of_int_1_less_iff 
+      of_int_floor_cancel of_int_hom.hom_add of_int_hom.hom_one of_int_hom.hom_one 
+      of_int_less_1_iff real_of_int_div)
+    show ?thesis by (simp add: one)
+  qed
+  also have "\<dots> \<le> 4 * ((q+1) / 4) / (q+1)" 
+  proof -
+    have "round (real_of_int q / 4) \<le> (q+1) / 4" 
+    proof -
+      consider (one) "q mod 4 = 1" | (three) "q mod 4 = 3" using q_odd 
+      by (smt (z3) Euclidean_Division.pos_mod_bound Euclidean_Division.pos_mod_sign 
+        even_numeral int_of_integer_numeral mod2_eq_if mod_mod_cancel numeral_Bit0 
+        numeral_One one_integer.rep_eq)
+      then show ?thesis
+      proof (cases)
+      case one
+        then obtain a where a_def: "q = a*4 + 1" by (simp add: q_def)
+        then have q_4: "real_of_int q / 4 = \<lfloor>real_of_int q / 4\<rfloor> + 1/4" using a_def by simp
+        then have "round (real_of_int q / 4) = round(\<lfloor>real_of_int q / 4\<rfloor> + 1/4)"
+          by presburger
+        also have "\<dots> = \<lfloor>real_of_int q / 4\<rfloor>" unfolding round_def by simp
+        finally have "round (real_of_int q / 4) = (q-1)/4" unfolding round_def using q_4 by simp
+        then show ?thesis by auto
+      next
+      case three
+        then obtain a where a_def: "q = a*4 + 3" by (simp add: q_def)
+        then have q_4: "real_of_int q / 4 = \<lfloor>real_of_int q / 4\<rfloor> + 3/4" using a_def by simp
+        then have "round (real_of_int q / 4) = round(\<lfloor>real_of_int q / 4\<rfloor> + 3/4)"
+          by presburger
+        also have "\<dots> = \<lfloor>real_of_int q / 4\<rfloor> + 1" unfolding round_def by simp
+        finally have "round (real_of_int q / 4) = (q+1)/4" unfolding round_def using q_4 by simp
+        then show ?thesis by auto
+      qed
+    qed
+    then show ?thesis using q_gt_zero by force
+  qed
+  finally have "abs_infty_poly (m - m') < 1" using q_gt_zero by simp
+  then have "abs_infty_poly (m-m') = 0" using abs_infty_poly_pos[of "m-m'"] by auto
+  then show ?thesis by (simp flip: m'_def add: abs_infty_poly_definite)
 qed
 
 
