@@ -44,6 +44,18 @@ proof -
   then show ?thesis unfolding mod_plus_minus_def by auto
 qed
 
+lemma mod_plus_minus_rangeE':
+  assumes "y \<in> {-\<lfloor>real_of_int b/2\<rfloor>..\<lfloor>real_of_int b/2\<rfloor>}"
+          "odd b"
+  shows "y = y mod+- b"
+proof -
+  have "(y + \<lfloor> real_of_int b / 2 \<rfloor>) \<in> {0..<b}" 
+    using assms(1) odd_smaller_b[OF assms(2)] by auto
+  then have "(y + \<lfloor> real_of_int b / 2 \<rfloor>) mod b = (y + \<lfloor> real_of_int b / 2 \<rfloor>)" 
+    using mod_rangeE by auto
+  then show ?thesis unfolding mod_plus_minus_def by auto
+qed
+
 lemma mod_plus_minus_zero:
   assumes "x mod+- b = 0"
   shows "x mod b = 0"
@@ -57,5 +69,37 @@ lemma mod_plus_minus_zero':
 using mod_plus_minus_rangeE[of 0] 
 by (smt (verit, best) assms(1) assms(2) atLeastAtMost_iff 
   atLeastLessThan_iff mod_plus_minus_range)
+
+
+lemma neg_mod_plus_minus:
+  assumes "odd b"
+          "b>0"
+  shows "(- x) mod+- b = - (x mod+- b)"
+proof -
+  obtain k :: int where k_def: "(-x) mod+- b = (-x)+ k* b" using mod_plus_minus_def
+  proof -
+    assume a1: "\<And>k. - x mod+- b = - x + k * b \<Longrightarrow> thesis"
+    have "\<exists>i. i mod b + - (x + i) = - x mod+- b"
+      by (metis (no_types) add.commute diff_add_cancel diff_minus_eq_add floor_divide_of_int_eq 
+      mod_plus_minus_def of_int_numeral)
+    then show ?thesis
+      using a1 by (metis (no_types) diff_add_cancel diff_diff_add diff_minus_eq_add 
+      minus_diff_eq minus_mult_div_eq_mod mult.commute mult_minus_left)
+  qed
+  then have "(-x) mod+- b = -(x - k*b)" using k_def by auto
+  also have "\<dots> = - ((x-k*b) mod+- b)"
+  proof -
+    have range_xkb:"x - k * b \<in> {- \<lfloor>real_of_int b / 2\<rfloor>..\<lfloor>real_of_int b / 2\<rfloor>}" 
+      using k_def mod_plus_minus_range[OF assms(2)]
+      by (smt (verit, ccfv_SIG) atLeastAtMost_iff)
+    have "x - k*b = (x - k*b) mod+- b" 
+      using mod_plus_minus_rangeE'[OF range_xkb assms(1)] by auto
+    then show ?thesis by auto
+  qed
+  also have "-((x - k*b) mod+- b) = -(x mod+- b)" unfolding mod_plus_minus_def 
+    by (smt (verit, best) mod_mult_self1)
+  finally show ?thesis by auto
+qed
+   
 
 end

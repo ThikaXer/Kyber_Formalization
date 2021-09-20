@@ -129,11 +129,28 @@ lemma abs_infty_q_pos:
   "abs_infty_q x \<ge> 0"
 by (auto simp add: abs_infty_q_def) 
 
-(*
+
 lemma abs_infty_q_scale:
-  "abs_infty_q ((of_mod_ring s) * x) = (abs s) * (abs_infty_poly x)"
-oops
-*)
+  "abs_infty_q ((of_int_mod_ring s) * x) = (abs s) * (abs_infty_q x)"
+sorry
+
+
+
+lemma abs_infty_q_minus:
+  "abs_infty_q (- x) = abs_infty_q x"
+proof -
+
+  have minus_x: "to_int_mod_ring (-x) = q - to_int_mod_ring x" sorry
+  have "abs_infty_q (-x) = abs ((q - to_int_mod_ring x) mod+- q)" 
+    unfolding abs_infty_q_def using minus_x by auto
+  also have "\<dots> = abs ((- to_int_mod_ring x) mod+- q)" unfolding mod_plus_minus_def
+    by (smt (z3) mod_add_self2)
+  also have "\<dots> = abs (- (to_int_mod_ring x mod+- q))" unfolding mod_plus_minus_def
+    sorry
+
+  also have "\<dots> = abs (to_int_mod_ring x mod+- q)" by auto
+  finally show ?thesis unfolding abs_infty_q_def by auto
+qed
 
 lemma abs_infty_q_triangle_ineq:
   "abs_infty_q (x+y) \<le> abs_infty_q x + abs_infty_q y"
@@ -202,11 +219,12 @@ proof (auto simp add: abs_infty_poly_def)
     using all_impl_Max[OF f_ge_zero finite_Max] by auto
 qed
 
-(*
+
+
 lemma abs_infty_poly_scale:
   "abs_infty_poly ((to_module s) * x) = (abs s) * (abs_infty_poly x)"
-oops
-*)
+sorry
+
 
 
 

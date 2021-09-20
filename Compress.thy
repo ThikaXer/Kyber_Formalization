@@ -2,6 +2,7 @@ theory Compress
 
 imports Kyber_spec
         Mod_Plus_Minus
+        Abs_Gf
         "HOL-Analysis.Finite_Cartesian_Product"
 
 begin
@@ -354,8 +355,6 @@ of_gf :: 'a gf \<Rightarrow> 'a mod_ring poly
 *)
 
 
-lemma "compress_poly d (to_gf (Poly xs)) = to_gf (Poly (map (compress d \<circ> of_int) xs))"
-
 definition decompress_poly :: "nat \<Rightarrow> 'a gf \<Rightarrow> 'a gf" where
   "decompress_poly d = 
         to_gf \<circ>
@@ -377,8 +376,46 @@ map to_int_mod_ring :: 'a mod_ring list \<Rightarrow> int list
 coeffs :: 'a mod_ring poly \<Rightarrow> 'a mod_ring list
 of_gf :: 'a gf \<Rightarrow> 'a mod_ring poly
 *)
+text \<open>Lemmas for compression error for polynomials.\<close>
 
+lemma decompress_compress_poly:
+  assumes "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
+          "d>0"
+  shows "let x' = decompress_poly d (compress_poly d x) in 
+         abs_infty_poly (x - x') \<le> round ( real_of_int q / real_of_int (2^(d+1)) )" 
+using decompress_compress[OF _ assms]
+sorry
 
+lemma compress_1:
+  shows "compress 1 x \<in> {0,1}"
+unfolding compress_def by auto
+
+lemma compress_poly_1:
+  shows "\<forall>i. poly.coeff (of_gf (compress_poly 1 x)) i \<in> {0,1}"
+sorry
+
+lemma decompress_1: 
+  assumes "a\<in>{0,1}"
+  shows "decompress 1 a = round(real_of_int q / 2) * a" 
+unfolding decompress_def using assms by auto 
+
+lemma decompress_poly_1: 
+  assumes "\<forall>i. poly.coeff (of_gf x) i \<in> {0,1}"
+  shows "decompress_poly 1 x = to_module (round((real_of_int q)/2)) * x"
+proof -
+  have "poly.coeff (of_gf (decompress_poly 1 x)) i = 
+        poly.coeff (of_gf (to_module (round((real_of_int q)/2)) * x)) i"
+  for i 
+  unfolding decompress_poly_def using of_gf_to_gf'[of "Poly
+         (map (of_int_mod_ring \<circ> (decompress (Suc 0) \<circ> to_int_mod_ring))
+           (coeffs (of_gf x)))"] apply (auto simp add: of_gf_to_gf') sorry
+  then have eq: "of_gf (decompress_poly 1 x) = of_gf (to_module (round((real_of_int q)/2)) * x)"
+    by (simp add: poly_eq_iff)
+  show ?thesis using arg_cong[OF eq, of "to_gf"] to_gf_of_gf[of "decompress_poly 1 x"] 
+    to_gf_of_gf[of "to_module (round (real_of_int q / 2)) * x"] by auto
+qed
+
+text \<open>Compression and decompression for vectors.\<close>
 
 definition map_vector :: "('b \<Rightarrow> 'b) \<Rightarrow> ('b, 'n) vec \<Rightarrow> ('b, 'n::finite) vec" where
   "map_vector f v = (\<chi> i. f (v $ i))"

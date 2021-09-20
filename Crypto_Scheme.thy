@@ -157,11 +157,12 @@ lemma kyber_correct:
           "cv = compress_error_poly dv (scalar_product (decompress_vec dt t) r + e2 + 
             to_module (round((real_of_int q)/2)) * m)"
           "abs_infty_poly (scalar_product e r + e2 + cv - scalar_product s e1 + 
-            scalar_product ct r - scalar_product s cu) < round (of_int q / 4)"
+            scalar_product ct r - scalar_product s cu) < round (real_of_int q / 4)"
           "set ((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m) \<subseteq> {0,1}"
           "degree (of_gf m) < n"
   shows "decrypt u v s du dv = m"
 proof -
+  text \<open>First, show that the calculations are performed correctly.\<close>
   have t_correct: "decompress_vec dt t = A *v s + e + ct " 
     using assms(1) assms(3) unfolding compress_error_vec_def key_gen_def by simp
   have u_correct: "decompress_vec du u = (transpose A) *v r + e1 + cu" 
@@ -175,73 +176,62 @@ proof -
   let ?t = "decompress_vec dt t"
   let ?u = "decompress_vec du u"
   let ?v = "decompress_poly dv v"
+  text \<open>Define w as the error term of the message encoding. Have $\|w\|_{\infty ,q} < \lceil q/4 \rfloor$\<close>
   define w where "w = scalar_product e r + e2 + cv - scalar_product s e1 + 
             scalar_product ct r - scalar_product s cu"
-  have w_length: "abs_infty_poly w < round (of_int q / 4)" unfolding w_def using assms(6) sorry
+  have w_length: "abs_infty_poly w < round (real_of_int q / 4)" 
+    unfolding w_def using assms(6) by auto
+  moreover have "abs_infty_poly w = abs_infty_poly (-w)" 
+    unfolding abs_infty_poly_def using neg_mod_plus_minus[OF q_odd q_gt_zero] 
+    using abs_infty_q_def abs_infty_q_minus by auto
+  ultimately have minus_w_length: "abs_infty_poly (-w) < round (real_of_int q / 4)" by auto
   have vsu: "?v - scalar_product s ?u = 
         w + to_module (round((real_of_int q)/2)) * m" 
     unfolding w_def by (auto simp add: u_correct v_correct' scalar_product_linear_left 
                        scalar_product_linear_right scalar_product_assoc)
+  text \<open>Set m' as the actual result of the decryption. It remains to show that $m' = m$.\<close>
   define m' where "m' = decrypt u v s du dv"
-  have decompress_01: "decompress 1 a = round(real_of_int q / 2) * a" if "a\<in>{0,1}" for a
-    unfolding decompress_def using that by auto 
-  have "decompress_poly 1  m' = to_module (round((real_of_int q)/2)) * m'"
-  proof -
-    have "poly.coeff (of_gf m') i \<in> {0,1}" for i unfolding m'_def decrypt_def  sorry
-    have "poly.coeff (of_gf (decompress_poly 1 m')) i = 
-          poly.coeff (of_gf (to_module (round((real_of_int q)/2)) * m')) i"
-    for i 
-    unfolding decompress_poly_def using of_gf_to_gf'[of "Poly
-           (map (of_int_mod_ring \<circ> (decompress (Suc 0) \<circ> to_int_mod_ring))
-             (coeffs (of_gf m')))"] apply (auto simp add: of_gf_to_gf') sorry
-    then have eq: "of_gf (decompress_poly 1 m') = of_gf (to_module (round((real_of_int q)/2)) * m')"
-      by (simp add: poly_eq_iff)
-    show ?thesis using arg_cong[OF eq, of "to_gf"] to_gf_of_gf[of "decompress_poly 1 m'"] 
-      to_gf_of_gf[of "to_module (round (real_of_int q / 2)) * m'"] by auto
-  qed
-
-
-
-
-        sorry
-    then have "decompress 1 m' = round(real_of_int q / 2) * m'" (*case distinction m' = 0,1*)
-
-
-
-
-
-    have coeff_01: "((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m) ! i \<in> {0,1}" 
-      if "i\<in>{0..degree (of_gf m)}"for i 
-    proof (cases "m=0")
-    case True
-      then have "of_gf m = 0" by auto
-      then have "coeffs (of_gf m) " sorry
-      then show ?thesis sorry
-    next
-    case False
-    then show ?thesis sorry
-    qed
-      
-      using assms(7) coeff_in_coeffs sorry
-    
-    
-    have "decompress 1 (((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m') ! i) = 
-      round(real_of_int q / 2) * (((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m') ! i)" 
-      if "i\<in>{0..degree (of_gf m)}"for i 
-    using decompress_01[OF coeff_01[OF that]] sorry 
-  qed
-      sorry
-  have "abs_infty_poly (?v - scalar_product s ?u - to_module (round((real_of_int q)/2)) * m') \<le> 
-        round (of_int q / 4)"
-    using vsu assms(6) decompress_compress apply simp sorry
-  then have "abs_infty_poly (?w + to_module (round((real_of_int q)/2)) * m - 
-              to_module (round((real_of_int q)/2)) * m') \<le> round (of_int q / 4)" sorry
-  then have "abs_infty_poly (to_module (round((real_of_int q)/2)) * (m - m')) < 
-              2 * round (of_int q / 4)" using abs_infty_poly_triangle_ineq sorry
-  then show ?thesis sorry
+  have coeffs_m': "\<forall>i. poly.coeff (of_gf m') i \<in> {0,1}" 
+    unfolding m'_def decrypt_def using compress_poly_1 by auto
+  text \<open>Show $\| v - s^Tu - \lceil q/2 \rfloor m' \|_{\infty, q} \leq \lceil q/4 \rfloor$\<close>
+  have "abs_infty_poly (?v - scalar_product s ?u - to_module (round((real_of_int q)/2)) * m')
+        = abs_infty_poly (?v - scalar_product s ?u - 
+          decompress_poly 1 (compress_poly 1 (?v - scalar_product s ?u)))"
+    by (auto simp flip: decompress_poly_1[of m', OF coeffs_m'])(simp add:m'_def decrypt_def)
+  also have "\<dots> \<le> round (real_of_int q / 4)" 
+    using decompress_compress_poly[of 1 "?v - scalar_product s ?u"] q_gt_two by fastforce
+  finally have "abs_infty_poly (?v - scalar_product s ?u - to_module (round((real_of_int q)/2)) * m') \<le> 
+        round (real_of_int q / 4)"
+    by auto
+  text \<open>Show $\| \lceil q/2 \rfloor (m-m')) \|_{\infty, q} < 2 \lceil q/4 \rfloor $\<close>
+  then have "abs_infty_poly (w + to_module (round((real_of_int q)/2)) * m - 
+              to_module (round((real_of_int q)/2)) * m') \<le> round (real_of_int q / 4)" 
+    using vsu by auto
+  then have w_mm': "abs_infty_poly (w + to_module (round((real_of_int q)/2)) * (m - m')) 
+    \<le> round (real_of_int q / 4)" 
+    by (smt (verit) add_uminus_conv_diff is_num_normalize(1) right_diff_distrib')
+  have "abs_infty_poly (to_module (round((real_of_int q)/2)) * (m - m')) = 
+        abs_infty_poly (w + to_module (round((real_of_int q)/2)) * (m - m') - w)"
+    by auto
+  also have "\<dots> \<le> abs_infty_poly (w + to_module (round((real_of_int q)/2)) * (m - m')) 
+                + abs_infty_poly (- w)"
+    using abs_infty_poly_triangle_ineq[of "w+to_module (round((real_of_int q)/2)) * (m - m')" "-w"] 
+    by auto
+  also have "\<dots> < 2 * round (real_of_int q / 4)" using w_mm' minus_w_length by auto
+  finally have "abs_infty_poly (to_module (round((real_of_int q)/2)) * (m - m')) < 
+              2 * round (real_of_int q / 4)" 
+    by auto
+  text \<open>Finally show that $m-m'$ is small enough. 
+    Since we know that m and m' have integer coefficients, it is enough to show that 
+    \<open>abs_infty_poly (m-m') <1\<close>.\<close>              
+  then have "(round((real_of_int q)/2)) * abs_infty_poly ( (m - m')) < 
+              2 * round (real_of_int q / 4)" using abs_infty_poly_scale
+  then show ?thesis unfolding decrypt_def m'_def sorry
 qed
 
-find_theorems "set (coeffs _)"
+
+
+
 
 lemma kyber_one_minus_delta_correct:
   assumes "delta = P ()"
