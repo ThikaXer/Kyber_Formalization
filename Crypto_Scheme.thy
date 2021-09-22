@@ -103,10 +103,7 @@ definition compress_error_poly :: "nat \<Rightarrow> 'a gf \<Rightarrow> 'a gf" 
 definition compress_error_vec :: "nat \<Rightarrow> ('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
   "compress_error_vec d y = decompress_vec d (compress_vec d y) - y"
 
-text \<open>Get the i-th entry of vector and j-th coefficient of polynomial\<close>
-
-definition vec_coeff :: "('a gf) \<Rightarrow> ('a mod_ring)" where 
-  "vec_coeff v = TO_DO"
+text \<open>Lemmas for scalar product\<close>
 
 
 lemma scalar_product_linear_left:
@@ -157,7 +154,7 @@ lemma kyber_correct:
             to_module (round((real_of_int q)/2)) * m)"
           "abs_infty_poly (scalar_product e r + e2 + cv - scalar_product s e1 + 
             scalar_product ct r - scalar_product s cu) < round (real_of_int q / 4)"
-          "set ((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) m) \<subseteq> {0,1}"
+          "set ((coeffs \<circ> of_gf) m) \<subseteq> {0,1}"
           "degree (of_gf m) < n"
   shows "decrypt u v s du dv = m"
 proof -
@@ -220,12 +217,37 @@ proof -
   finally have "abs_infty_poly (to_module (round((real_of_int q)/2)) * (m - m')) < 
               2 * round (real_of_int q / 4)" 
     by auto
+
+  text \<open>Finally show that $m-m'$ is small enough, ie that it is an integer smaller than one. 
+    Here, we need that $q \cong 1\mod 4$.\<close>
+  have "set ((coeffs \<circ> of_gf) m') \<subseteq> {0,1}" sorry
+  then have coeff_0pm1: "set ((coeffs \<circ> of_gf) (m-m')) \<subseteq> {of_int_mod_ring (-1),0,1}" sorry
+  have "set ((coeffs \<circ> of_gf) (m-m')) \<subseteq> {0}"
+  proof (rule ccontr)
+    assume "\<not>set ((coeffs \<circ> of_gf) (m-m')) \<subseteq> {0}"
+    then have "\<exists>i. poly.coeff (of_gf (m-m')) i \<in> {of_int_mod_ring (-1),1}" using coeff_0pm1 sorry
+    then have 
+
+  have "abs_infty_poly (m - m') = 0" 
+  proof(rule ccontr)
+    assume "\<not> abs_infty_poly (m - m') = 0"
+    then have "MAX x. abs_infty_q (poly.coeff (of_gf (m-m')) x) \<in> {-1,1}" 
+      unfolding abs_infty_poly_def using coeff_0pm1 
+    then show False
+      sorry
+  qed
+  then have "abs_infty_poly (m-m') = 0" using abs_infty_poly_pos[of "m-m'"] by auto
+  then show ?thesis by (simp flip: m'_def add: abs_infty_poly_definite)
+
+(*(*Problem: scaling in abs_infty is only true for inequality not equality. To repair proof,
+  we need to make the assumption that q=1 mod 4*)
+
   text \<open>Finally show that $m-m'$ is small enough. 
     Since we know that m and m' have integer coefficients, it is enough to show that 
     \<open>abs_infty_poly (m-m') <1\<close>.\<close>         
   then have "(round((real_of_int q)/2)) * abs_infty_poly (m - m') < 
               2 * round (real_of_int q / 4)" 
-    using abs_infty_poly_scale[of "round((real_of_int q)/2)" "m-m'"]
+    using abs_infty_poly_scale[of "round((real_of_int q)/2)" "m-m'"] sorry
     by (smt (verit, best) abs_infty_poly_pos minus_mult_minus mult_minus_right)
   moreover have "round((real_of_int q)/2) > 0" using q_gt_two
     by (smt (z3) divide_less_eq_1_pos of_int_add of_int_hom.hom_one round_mono round_of_int)
@@ -274,6 +296,7 @@ proof -
   finally have "abs_infty_poly (m - m') < 1" using q_gt_zero by simp
   then have "abs_infty_poly (m-m') = 0" using abs_infty_poly_pos[of "m-m'"] by auto
   then show ?thesis by (simp flip: m'_def add: abs_infty_poly_definite)
+*)
 qed
 
 

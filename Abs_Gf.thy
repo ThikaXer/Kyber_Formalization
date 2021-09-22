@@ -80,9 +80,9 @@ qed
 
 
 lemma all_impl_Max: 
-  assumes "\<forall>x. f x \<ge> (0::int)"
+  assumes "\<forall>x. f x \<ge> (a::int)"
           "finite (range f)"
-  shows "(MAX x. f x) \<ge> 0"
+  shows "(MAX x. f x) \<ge> a"
 by (simp add: Max_ge_iff assms(1) assms(2))
 
 
@@ -130,27 +130,190 @@ lemma abs_infty_q_pos:
 by (auto simp add: abs_infty_q_def) 
 
 
-lemma abs_infty_q_scale:
-  "abs_infty_q ((of_int_mod_ring s) * x) = (abs s) * (abs_infty_q x)"
-sorry
-
-
-
 lemma abs_infty_q_minus:
   "abs_infty_q (- x) = abs_infty_q x"
-proof -
-
-  have minus_x: "to_int_mod_ring (-x) = q - to_int_mod_ring x" sorry
-  have "abs_infty_q (-x) = abs ((q - to_int_mod_ring x) mod+- q)" 
-    unfolding abs_infty_q_def using minus_x by auto
-  also have "\<dots> = abs ((- to_int_mod_ring x) mod+- q)" unfolding mod_plus_minus_def
-    by (smt (z3) mod_add_self2)
-  also have "\<dots> = abs (- (to_int_mod_ring x mod+- q))" unfolding mod_plus_minus_def
-    sorry
-
-  also have "\<dots> = abs (to_int_mod_ring x mod+- q)" by auto
+proof (cases "x=0")
+case True
+  then show ?thesis by auto
+next
+case False
+  have minus_x: "to_int_mod_ring (-x) = q - to_int_mod_ring x"
+  proof -
+    have "to_int_mod_ring (-x) = to_int_mod_ring (-x) mod q"
+      by (metis CARD_a Rep_mod_ring_mod to_int_mod_ring.rep_eq)
+    also have "\<dots> = (- to_int_mod_ring x) mod q" 
+      by (metis (no_types, hide_lams) CARD_a diff_eq_eq mod_add_right_eq 
+        plus_mod_ring.rep_eq to_int_mod_ring.rep_eq uminus_add_conv_diff)
+    also have "\<dots> = q - to_int_mod_ring x" 
+    proof -
+      have "- to_int_mod_ring x \<in> {-q<..<0}"
+      using CARD_a range_to_int_mod_ring False 
+        by (smt (verit, best) Rep_mod_ring_mod greaterThanLessThan_iff q_gt_zero 
+          to_int_mod_ring.rep_eq to_int_mod_ring_hom.eq_iff to_int_mod_ring_hom.hom_zero 
+          zmod_trivial_iff)
+      then have "q-to_int_mod_ring x\<in>{0<..<q}" by auto
+      then show ?thesis 
+        using minus_mod_self1 mod_rangeE
+        by (simp add: to_int_mod_ring.rep_eq zmod_zminus1_eq_if)
+    qed
+    finally show ?thesis by auto
+  qed
+  then have "\<bar>to_int_mod_ring (- x) mod+- q\<bar> = \<bar>(q - (to_int_mod_ring x)) mod+- q\<bar>" 
+    by auto
+  also have "\<dots> = \<bar> (- to_int_mod_ring x) mod+- q\<bar>" 
+    unfolding mod_plus_minus_def by (smt (z3) mod_add_self2)
+  also have "\<dots> = \<bar> - (to_int_mod_ring x mod+- q)\<bar>" 
+    using neg_mod_plus_minus[OF q_odd q_gt_zero, of "to_int_mod_ring x"] by simp
+  also have "\<dots> = \<bar>to_int_mod_ring x mod+- q\<bar>" by auto
   finally show ?thesis unfolding abs_infty_q_def by auto
 qed
+
+
+
+lemma to_int_mod_ring_mult:
+  "to_int_mod_ring (a*b) = 
+    to_int_mod_ring (a::'a mod_ring) * to_int_mod_ring (b::'a mod_ring) mod q"
+by (metis (no_types, lifting) CARD_a of_int_hom.hom_mult of_int_mod_ring.rep_eq 
+    of_int_mod_ring_to_int_mod_ring of_int_of_int_mod_ring to_int_mod_ring.rep_eq)
+
+lemma mod_plus_minus_mult: 
+  "s*x mod+- q = (s mod+- q) * (x mod+- q) mod+- q"
+unfolding mod_plus_minus_def
+by (smt (verit, del_insts) mod_add_eq mod_diff_left_eq mod_mult_left_eq mod_mult_right_eq)
+
+(*Scaling only with inequality not equality! This causes a problem in proof of scheme.
+  Need to add q=1mod4 to change proof*)
+lemma mod_plus_minus_leq_mod: 
+  "\<bar>x mod+- q\<bar> \<le> \<bar>x\<bar>"
+by (smt (verit, best) atLeastAtMost_iff mod_plus_minus_range mod_plus_minus_rangeE' q_gt_zero q_odd)
+
+lemma abs_infty_q_scale_pos:
+  assumes "s\<ge>0"
+  shows "abs_infty_q ((of_int_mod_ring s :: 'a mod_ring) * x) \<le> \<bar>s\<bar> * (abs_infty_q x)"
+proof -
+  have "\<bar>to_int_mod_ring (of_int_mod_ring s * x) mod+- q\<bar> = 
+        \<bar>(to_int_mod_ring (of_int_mod_ring s ::'a mod_ring) * to_int_mod_ring x mod q) mod+- q\<bar>"
+    using to_int_mod_ring_mult[of "of_int_mod_ring s" x] by simp
+  also have "\<dots> = \<bar>(s mod q * to_int_mod_ring x) mod+- q\<bar>" 
+    by (metis CARD_a mod_add_left_eq mod_plus_minus_def of_int_mod_ring.rep_eq 
+      to_int_mod_ring.rep_eq)
+  also have "\<dots> \<le> \<bar>s mod q\<bar> * \<bar>to_int_mod_ring x mod+- q\<bar>" 
+  proof -
+    have "\<bar>s mod q * to_int_mod_ring x mod+- q\<bar> = 
+          \<bar>(s mod q mod+- q) * (to_int_mod_ring x mod+- q) mod+- q\<bar>"
+      using mod_plus_minus_mult by auto
+    also have "\<dots> \<le> \<bar>(s mod q mod+- q) * (to_int_mod_ring x mod+- q)\<bar>" 
+      using mod_plus_minus_leq_mod by blast
+    also have "\<dots> \<le> \<bar>s mod q mod+- q\<bar> * \<bar>(to_int_mod_ring x mod+- q)\<bar>" 
+      by (simp add: abs_mult)
+    also have "\<dots> \<le> \<bar>s mod q\<bar> * \<bar>(to_int_mod_ring x mod+- q)\<bar>"
+      using mod_plus_minus_leq_mod[of "s mod q"] by (simp add: mult_right_mono)
+    finally show ?thesis by auto
+  qed 
+  also have "\<dots> \<le> \<bar>s\<bar> * \<bar>to_int_mod_ring x mod+- q\<bar>" using assms
+    by (simp add: mult_mono' q_gt_zero zmod_le_nonneg_dividend)
+  finally show ?thesis unfolding abs_infty_q_def by auto
+qed
+
+lemma abs_infty_q_scale_neg:
+  assumes "s<0"
+  shows "abs_infty_q ((of_int_mod_ring s :: 'a mod_ring) * x) \<le> \<bar>s\<bar> * (abs_infty_q x)"
+using abs_infty_q_minus abs_infty_q_scale_pos 
+by (smt (verit, best) mult_minus_left of_int_minus of_int_of_int_mod_ring)
+
+lemma abs_infty_q_scale:
+  "abs_infty_q ((of_int_mod_ring s :: 'a mod_ring) * x) \<le> \<bar>s\<bar> * (abs_infty_q x)"
+apply (cases "s\<ge>0") 
+using abs_infty_q_scale_pos apply presburger 
+using abs_infty_q_scale_neg by force
+
+
+(*Try this*)
+
+
+
+lemma abs_infty_q_ineq_1:
+assumes "a = 1"
+shows "abs_infty_q (of_int_mod_ring (round((real_of_int q)/2)) * a) \<ge> 
+              2 * round (real_of_int q / 4)"
+proof -
+  have "abs_infty_q (of_int_mod_ring (round((real_of_int q)/2)) * a) =
+        abs_infty_q (of_int_mod_ring (round((real_of_int q)/2))::'a mod_ring)"
+  using assms by simp
+  also have "\<dots> = \<bar>round((real_of_int q)/2) mod+- q\<bar>"
+    unfolding abs_infty_q_def using to_int_mod_ring_of_int_mod_ring CARD_a
+    by (simp add: assms mod_add_left_eq mod_plus_minus_def of_int_mod_ring.rep_eq 
+      to_int_mod_ring.rep_eq)
+  also have "\<dots> = \<bar>\<lfloor>(real_of_int q)/2\<rfloor>\<bar>" unfolding mod_plus_minus_def round_def 
+    by (simp add: q_def)
+  also have "\<dots> = 2 * round (real_of_int q / 4)" by (simp add: q_def round_def)
+  finally show "abs_infty_q (of_int_mod_ring (round((real_of_int q)/2)) * a) \<ge> 
+              2 * round (real_of_int q / 4)" by simp
+qed
+
+lemma abs_infty_q_ineq_minus_1:
+assumes "a = -1"
+shows "abs_infty_q (of_int_mod_ring (round((real_of_int q)/2)) * a) \<ge> 
+              2 * round (real_of_int q / 4)"
+proof -
+  have "abs_infty_q (of_int_mod_ring (round((real_of_int q)/2)) * a) = 
+        abs_infty_q (of_int_mod_ring (round((real_of_int q)/2)) * (-a))"
+  using abs_infty_q_minus by simp
+  then show ?thesis using abs_infty_q_ineq_1[of "-a"] using assms by auto
+qed
+
+lemma of_gf_mult:
+  "of_gf (a * b) = of_gf a * of_gf b mod gf_poly"
+by (metis of_gf_to_gf to_gf_mult to_gf_of_gf)
+
+lemma of_gf_scale:
+  "of_gf (to_module s * b) = Polynomial.smult (of_int_mod_ring s) (of_gf b)"
+unfolding to_module_def
+  by (auto simp add: of_gf_mult[of "to_gf [:of_int_mod_ring s:]" "b"] of_gf_to_gf) 
+     (simp add: mod_mult_left_eq mod_smult_left of_gf.rep_eq)
+
+lemma to_module_mult:
+  "poly.coeff (of_gf (to_module s * a)) x1 = 
+   of_int_mod_ring (s) * poly.coeff (of_gf a) x1"
+using of_gf_scale[of s a] by simp
+
+
+lemma abs_infty_poly_ineq_pm_1:
+assumes "\<exists>x. poly.coeff (of_gf a) x \<in> {of_int_mod_ring (-1),1}"
+shows "abs_infty_poly (to_module (round((real_of_int q)/2)) * a) \<ge> 
+              2 * round (real_of_int q / 4)"
+proof -
+  let ?x = "to_module (round((real_of_int q)/2)) * a"
+  obtain x1 where x1_def: "poly.coeff (of_gf a) x1 \<in> {of_int_mod_ring(-1),1}" using assms by auto
+  have "abs_infty_poly (to_module (round((real_of_int q)/2)) * a)
+        \<ge> abs_infty_q (poly.coeff (of_gf (to_module (round (real_of_int q / 2)) * a)) x1)" 
+    unfolding abs_infty_poly_def using x1_def by (simp add: finite_Max)
+  also have "abs_infty_q (poly.coeff (of_gf (to_module (round (real_of_int q / 2)) * a)) x1)
+             = abs_infty_q (of_int_mod_ring (round (real_of_int q / 2))
+                  * (poly.coeff (of_gf a) x1))" 
+    using to_module_mult[of "round (real_of_int q / 2)" a] by simp
+  also have "\<dots> = abs_infty_q (of_int_mod_ring (round (real_of_int q / 2)))" 
+  proof -
+    consider "poly.coeff (of_gf a) x1=1" | "poly.coeff (of_gf a) x1 = of_int_mod_ring (-1)" 
+      using x1_def by auto
+    then show ?thesis 
+    proof (cases)
+      case 2
+      then show ?thesis
+      by (metis abs_infty_q_minus mult.right_neutral mult_minus_right 
+          of_int_hom.hom_one of_int_minus of_int_of_int_mod_ring)
+    qed (auto)
+  qed
+  also have "\<dots> = \<bar>round (real_of_int q / 2) mod+- q\<bar>" 
+    unfolding abs_infty_q_def using to_int_mod_ring_of_int_mod_ring 
+    by (simp add: CARD_a mod_add_left_eq mod_plus_minus_def of_int_mod_ring.rep_eq 
+      to_int_mod_ring.rep_eq)
+  also have "\<dots> = 2 * round (real_of_int q / 4)" 
+    unfolding mod_plus_minus_def by (simp add: q_def round_def)
+  finally show ?thesis unfolding abs_infty_poly_def by simp
+qed
+
+
 
 lemma abs_infty_q_triangle_ineq:
   "abs_infty_q (x+y) \<le> abs_infty_q x + abs_infty_q y"
@@ -219,14 +382,50 @@ proof (auto simp add: abs_infty_poly_def)
     using all_impl_Max[OF f_ge_zero finite_Max] by auto
 qed
 
-
-
+(*
+(* Problem: Scaling is only true for inequality not necessarily equality! 
+  Thus proof as before does not work out. Need to change proof, and add q=1 mod 4*)
 lemma abs_infty_poly_scale:
   "abs_infty_poly ((to_module s) * x) = (abs s) * (abs_infty_poly x)"
-sorry
+apply (auto simp add: abs_infty_poly_def)oops
 
 
+lemma mod_plus_minus_alt_def:
+  "x mod+- q = x - q * round (real_of_int x / real_of_int q)"
+oops
 
+lemma q_odd_round_half: "round (real_of_int q / 2) = (q+1) div 2"
+by (simp add: round_def q_def)
+
+
+lemma abs_infty_q_scale':
+  "abs_infty_q (of_int_mod_ring (round (real_of_int q / 2)) * x) =
+    \<bar>round (real_of_int q / 2)\<bar> * abs_infty_q x"
+proof -
+  have "abs_infty_q (of_int_mod_ring (round (real_of_int q / 2)) * x) =
+        abs_infty_q (of_int_mod_ring ((q+1) div 2) * x)" using q_odd_round_half by simp
+  also have "\<dots> = \<bar>(to_int_mod_ring (of_int_mod_ring ((q+1) div 2)::'a mod_ring))*
+                    (to_int_mod_ring x) mod q mod+- q\<bar>" 
+    unfolding abs_infty_q_def using to_int_mod_ring_mult[of "of_int_mod_ring ((q + 1) div 2)" "x"]
+    by simp
+  also have "\<dots> = \<bar> ((q+1) div 2) * (to_int_mod_ring x) mod q mod+- q\<bar>" 
+    using to_int_mod_ring_of_int_mod_ring
+    by (simp add: CARD_a mod_mult_right_eq mult.commute of_int_mod_ring.rep_eq 
+      to_int_mod_ring.rep_eq)
+  also have "\<dots> = \<bar> ((q+1) div 2) * (to_int_mod_ring x) mod+- q\<bar>" 
+  also have "\<dots> =  \<bar>round (real_of_int q / 2)\<bar> * abs_infty_q x" unfolding abs_infty_q_def
+unfolding abs_infty_q_def mod_plus_minus_def oops
+
+lemma abs_infty_poly_scale':
+  "abs_infty_poly (to_module (round (real_of_int q / 2)) * x) =
+    \<bar>round (real_of_int q / 2)\<bar> * abs_infty_poly x"
+proof -
+  have "abs_infty_poly (to_module (round (real_of_int q / 2)) * x) =
+        abs_infty_poly (to_module (\<lceil>real_of_int q/2\<rceil>) * x)" using q_odd_round_half by simp
+  also have "\<dots> = \<bar>round (real_of_int q / 2)\<bar> * abs_infty_poly x" unfolding abs_infty_poly_def
+
+unfolding abs_infty_poly_def oops
+*)
 
 
 lemma abs_infty_poly_triangle_ineq:

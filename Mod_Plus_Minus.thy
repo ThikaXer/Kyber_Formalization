@@ -100,6 +100,10 @@ proof -
     by (smt (verit, best) mod_mult_self1)
   finally show ?thesis by auto
 qed
-   
+
+
+lemma mod_plus_minus_rep: obtains k where "x = k*b + x mod+- b"
+unfolding mod_plus_minus_def 
+by (metis add.commute add_diff_eq diff_eq_eq minus_mult_div_eq_mod mult.commute)
 
 end
