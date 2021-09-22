@@ -228,9 +228,6 @@ using abs_infty_q_scale_pos apply presburger
 using abs_infty_q_scale_neg by force
 
 
-(*Try this*)
-
-
 
 lemma abs_infty_q_ineq_1:
 assumes "a = 1"

@@ -3,6 +3,7 @@ theory Crypto_Scheme
 imports Kyber_spec
         Compress
         Abs_Gf
+        Coeffs
 
 begin
 
@@ -214,89 +215,47 @@ proof -
     using abs_infty_poly_triangle_ineq[of "w+to_module (round((real_of_int q)/2)) * (m - m')" "-w"] 
     by auto
   also have "\<dots> < 2 * round (real_of_int q / 4)" using w_mm' minus_w_length by auto
-  finally have "abs_infty_poly (to_module (round((real_of_int q)/2)) * (m - m')) < 
+  finally have error_lt: "abs_infty_poly (to_module (round((real_of_int q)/2)) * (m - m')) < 
               2 * round (real_of_int q / 4)" 
     by auto
 
   text \<open>Finally show that $m-m'$ is small enough, ie that it is an integer smaller than one. 
     Here, we need that $q \cong 1\mod 4$.\<close>
-  have "set ((coeffs \<circ> of_gf) m') \<subseteq> {0,1}" sorry
-  then have coeff_0pm1: "set ((coeffs \<circ> of_gf) (m-m')) \<subseteq> {of_int_mod_ring (-1),0,1}" sorry
+  have coeffs_m':"set ((coeffs \<circ> of_gf) m') \<subseteq> {0,1}" 
+  proof -
+    have "compress 1 a \<in> {0,1}" for a unfolding compress_def by auto
+    then have "poly.coeff (of_gf (compress_poly 1 a)) i \<in> {0,1}" for a i
+      using compress_poly_1 by presburger
+    then have "set (coeffs (of_gf (compress_poly 1 a))) \<subseteq> {0,1}" for a 
+      using coeffs_in_coeff[of "of_gf (compress_poly 1 a)" "{0,1}"] by simp
+    then show ?thesis unfolding m'_def decrypt_def by simp
+  qed
+  have coeff_0pm1: "set ((coeffs \<circ> of_gf) (m-m')) \<subseteq> {of_int_mod_ring (-1),0,1}"
+  proof -
+    have "poly.coeff (of_gf m) i \<in> {0,1}" for i using assms(7) coeff_in_coeffs
+      by (metis comp_def insertCI le_degree subset_iff zero_poly.rep_eq)
+    moreover have "poly.coeff (of_gf m') i \<in> {0,1}" for i using coeffs_m' coeff_in_coeffs
+      by (metis comp_def insertCI le_degree subset_iff zero_poly.rep_eq)
+    ultimately have "poly.coeff (of_gf m - of_gf m') i \<in> {of_int_mod_ring (- 1), 0, 1}" for i
+      by (metis (no_types, lifting) coeff_diff diff_zero eq_iff_diff_eq_0 insert_iff 
+        of_int_hom.hom_one of_int_minus of_int_of_int_mod_ring singleton_iff 
+        verit_minus_simplify(3))
+    then have "set (coeffs (of_gf m - of_gf m')) \<subseteq> {of_int_mod_ring (- 1), 0, 1}" 
+      by (simp add: coeffs_in_coeff)
+    then show ?thesis using assms(7) of_gf_diff[of m m'] by simp
+  qed
   have "set ((coeffs \<circ> of_gf) (m-m')) \<subseteq> {0}"
   proof (rule ccontr)
     assume "\<not>set ((coeffs \<circ> of_gf) (m-m')) \<subseteq> {0}"
-    then have "\<exists>i. poly.coeff (of_gf (m-m')) i \<in> {of_int_mod_ring (-1),1}" using coeff_0pm1 sorry
-    then have 
-
-  have "abs_infty_poly (m - m') = 0" 
-  proof(rule ccontr)
-    assume "\<not> abs_infty_poly (m - m') = 0"
-    then have "MAX x. abs_infty_q (poly.coeff (of_gf (m-m')) x) \<in> {-1,1}" 
-      unfolding abs_infty_poly_def using coeff_0pm1 
-    then show False
-      sorry
+    then have "\<exists>i. poly.coeff (of_gf (m-m')) i \<in> {of_int_mod_ring (-1),1}" 
+      using coeff_0pm1 
+      by (smt (z3) coeff_in_coeffs comp_apply insert_iff leading_coeff_0_iff order_refl 
+        set_coeffs_subset_singleton_0_iff subsetD)
+    then have error_ge: "abs_infty_poly (to_module (round((real_of_int q)/2)) * (m-m')) \<ge> 
+              2 * round (real_of_int q / 4)" using abs_infty_poly_ineq_pm_1 by simp
+    show False using error_lt error_ge by simp
   qed
-  then have "abs_infty_poly (m-m') = 0" using abs_infty_poly_pos[of "m-m'"] by auto
-  then show ?thesis by (simp flip: m'_def add: abs_infty_poly_definite)
-
-(*(*Problem: scaling in abs_infty is only true for inequality not equality. To repair proof,
-  we need to make the assumption that q=1 mod 4*)
-
-  text \<open>Finally show that $m-m'$ is small enough. 
-    Since we know that m and m' have integer coefficients, it is enough to show that 
-    \<open>abs_infty_poly (m-m') <1\<close>.\<close>         
-  then have "(round((real_of_int q)/2)) * abs_infty_poly (m - m') < 
-              2 * round (real_of_int q / 4)" 
-    using abs_infty_poly_scale[of "round((real_of_int q)/2)" "m-m'"] sorry
-    by (smt (verit, best) abs_infty_poly_pos minus_mult_minus mult_minus_right)
-  moreover have "round((real_of_int q)/2) > 0" using q_gt_two
-    by (smt (z3) divide_less_eq_1_pos of_int_add of_int_hom.hom_one round_mono round_of_int)
-  ultimately have " abs_infty_poly (m - m') < 2 * round (real_of_int q / 4)
-      / (round((real_of_int q)/2))" 
-    by (metis mult.commute of_int_hom.hom_mult of_int_less_iff of_int_pos pos_less_divide_eq)
-  also have "\<dots> = 2 * round (real_of_int q / 4) / (q+1) * 2"
-  proof -
-    have one: "round((real_of_int q)/2) = (q+1)/2" using q_odd unfolding round_def
-    by (smt (verit, ccfv_threshold) add_divide_distrib even_plus_one_iff of_int_1_less_iff 
-      of_int_floor_cancel of_int_hom.hom_add of_int_hom.hom_one of_int_hom.hom_one 
-      of_int_less_1_iff real_of_int_div)
-    show ?thesis by (simp add: one)
-  qed
-  also have "\<dots> \<le> 4 * ((q+1) / 4) / (q+1)" 
-  proof -
-    have "round (real_of_int q / 4) \<le> (q+1) / 4" 
-    proof -
-      consider (one) "q mod 4 = 1" | (three) "q mod 4 = 3" using q_odd 
-      by (smt (z3) Euclidean_Division.pos_mod_bound Euclidean_Division.pos_mod_sign 
-        even_numeral int_of_integer_numeral mod2_eq_if mod_mod_cancel numeral_Bit0 
-        numeral_One one_integer.rep_eq)
-      then show ?thesis
-      proof (cases)
-      case one
-        then obtain a where a_def: "q = a*4 + 1" by (simp add: q_def)
-        then have q_4: "real_of_int q / 4 = \<lfloor>real_of_int q / 4\<rfloor> + 1/4" using a_def by simp
-        then have "round (real_of_int q / 4) = round(\<lfloor>real_of_int q / 4\<rfloor> + 1/4)"
-          by presburger
-        also have "\<dots> = \<lfloor>real_of_int q / 4\<rfloor>" unfolding round_def by simp
-        finally have "round (real_of_int q / 4) = (q-1)/4" unfolding round_def using q_4 by simp
-        then show ?thesis by auto
-      next
-      case three
-        then obtain a where a_def: "q = a*4 + 3" by (simp add: q_def)
-        then have q_4: "real_of_int q / 4 = \<lfloor>real_of_int q / 4\<rfloor> + 3/4" using a_def by simp
-        then have "round (real_of_int q / 4) = round(\<lfloor>real_of_int q / 4\<rfloor> + 3/4)"
-          by presburger
-        also have "\<dots> = \<lfloor>real_of_int q / 4\<rfloor> + 1" unfolding round_def by simp
-        finally have "round (real_of_int q / 4) = (q+1)/4" unfolding round_def using q_4 by simp
-        then show ?thesis by auto
-      qed
-    qed
-    then show ?thesis using q_gt_zero by force
-  qed
-  finally have "abs_infty_poly (m - m') < 1" using q_gt_zero by simp
-  then have "abs_infty_poly (m-m') = 0" using abs_infty_poly_pos[of "m-m'"] by auto
-  then show ?thesis by (simp flip: m'_def add: abs_infty_poly_definite)
-*)
+  then show ?thesis by (simp flip: m'_def) (metis to_gf_of_gf)
 qed
 
 

@@ -342,6 +342,11 @@ lemma q_prime: "prime q"
 using kyber_spec_axioms kyber_spec_def
 by (metis prime_card_int)
 
+text \<open>In order to make certain that the proof of the scheme goes through, 
+  we need $q \cong 1 \mod 4$.\<close>
+lemma q_mod_4: "q mod 4 = 1"
+using q_def by force
+
 text \<open>Properties in the ring \<open>'a gf\<close>. A good representative has degree up to n.\<close>
 lemma deg_mod_gf_poly:
   assumes "degree x < deg_gf TYPE('a)"
