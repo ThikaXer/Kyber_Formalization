@@ -802,7 +802,7 @@ qed
 
 
 
-
+text \<open>More properties of compress and decompress, used for returning message at the end.\<close>
 
 lemma compress_1:
   shows "compress 1 x \<in> {0,1}"
@@ -810,7 +810,55 @@ unfolding compress_def by auto
 
 lemma compress_poly_1:
   shows "\<forall>i. poly.coeff (of_gf (compress_poly 1 x)) i \<in> {0,1}"
-sorry
+proof -
+  have "poly.coeff (of_gf (compress_poly 1 x)) i \<in> {0,1}" for i
+  proof -
+    have "set (map (compress 1) ((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) x)) \<subseteq> {0,1}"
+      using compress_1 by auto
+    then have "set ((map (compress 1) \<circ> map to_int_mod_ring \<circ> coeffs \<circ> of_gf) x) \<subseteq> {0,1}"
+      (is "set (?compressed_1) \<subseteq> _")
+      by auto
+    then have "set (map (of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) ?compressed_1) \<subseteq> {0,1}"
+      (is "set (?of_int_compressed_1)\<subseteq>_")
+      by (smt (verit, best) imageE insert_iff of_int_mod_ring_hom.hom_zero 
+        of_int_mod_ring_to_int_mod_ring set_map singletonD subsetD subsetI 
+        to_int_mod_ring_hom.hom_one)
+    then have "nth_default 0 (?of_int_compressed_1) i
+       \<in> {0,1}"
+       by (smt (verit, best) comp_apply compress_1 compress_zero insert_iff 
+        nth_default_map_eq of_int_mod_ring_hom.hom_zero of_int_mod_ring_to_int_mod_ring 
+        singleton_iff to_int_mod_ring_hom.hom_one)
+    moreover have "Poly (?of_int_compressed_1)
+      = Poly (?of_int_compressed_1) mod gf_poly" 
+    proof -
+      have "degree (Poly (?of_int_compressed_1)) < deg_gf TYPE('a)" 
+      proof (cases "Poly ?of_int_compressed_1 \<noteq> 0")
+      case True
+        have "degree (Poly ?of_int_compressed_1) \<le> 
+          length (map (of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) ?compressed_1) - 1"
+          using deg_Poly'[OF True] by simp
+        also have "\<dots> = length ((coeffs \<circ> of_gf) x) - 1" by simp 
+        also have "\<dots> < n" unfolding comp_def using length_coeffs_of_gf
+          by (metis deg_gf_n deg_of_gf degree_eq_length_coeffs nat_int zless_nat_conj)
+        finally have "degree (Poly ?of_int_compressed_1) < n"
+        using True \<open>int (length ((coeffs \<circ> of_gf) x) - 1) < n\<close> deg_Poly' by fastforce
+        then show ?thesis using deg_gf_n by simp
+      next
+      case False
+        then show ?thesis 
+        using deg_gf_pos by auto
+      qed
+      then show ?thesis
+        using deg_mod_gf_poly[of "Poly (?of_int_compressed_1)", symmetric] by auto
+    qed
+    ultimately show ?thesis unfolding compress_poly_def comp_def
+      using of_gf_to_gf[of "Poly (?of_int_compressed_1)"]  
+      by auto
+  qed
+  then show ?thesis by auto
+qed
+
+
 
 lemma decompress_1: 
   assumes "a\<in>{0,1}"
