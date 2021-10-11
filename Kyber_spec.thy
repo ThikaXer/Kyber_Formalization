@@ -342,6 +342,14 @@ lemma q_prime: "prime q"
 using kyber_spec_axioms kyber_spec_def
 by (metis prime_card_int)
 
+text \<open>Some properties of the degree n.\<close>
+
+lemma n_nonzero: "n \<noteq> 0" 
+using kyber_spec_axioms kyber_spec_def by (smt (z3))
+
+lemma n_gt_zero: "n>0" 
+using kyber_spec_axioms kyber_spec_def by (smt (z3))
+
 text \<open>In order to make certain that the proof of the scheme goes through, 
   we need $q \cong 1 \mod 4$.\<close>
 lemma q_mod_4: "q mod 4 = 1"
@@ -359,6 +367,14 @@ lemma of_gf_to_gf':
   shows "of_gf (to_gf x) = (x ::'a mod_ring poly)"
 using deg_mod_gf_poly[OF assms] of_gf_to_gf[of x] by simp
 
+lemma deg_gf_n: 
+  "deg_gf TYPE('a) = n"
+unfolding deg_gf_def using gf_poly'_eq n_gt_1
+by (simp add: degree_add_eq_left degree_monom_eq)
+
+lemma deg_of_gf: 
+  "degree (of_gf (x ::'a gf)) < deg_gf TYPE('a)"
+by (metis deg_gf_pos degree_0 degree_gf_poly degree_mod_less' gf_poly_nz of_gf.rep_eq)
 
 definition to_module :: "int \<Rightarrow> 'a gf" where
   "to_module x = to_gf [: of_int_mod_ring x :]"
