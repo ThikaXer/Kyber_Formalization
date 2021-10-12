@@ -431,25 +431,8 @@ map to_int_mod_ring :: 'a mod_ring list \<Rightarrow> int list
 coeffs :: 'a mod_ring poly \<Rightarrow> 'a mod_ring list
 of_gf :: 'a gf \<Rightarrow> 'a mod_ring poly
 *)
-text \<open>Lemmas for compression error for polynomials.\<close>
-
-value "[1,2,3,0::int] ! (length [1,2,3,0::int] -1)"
-value "[1,2,3::int]@ [0]"
- 
-
-(* lemma strip_while_id:
-  assumes "length (xs) < Suc (nat n)" 
-    "xs!(length xs - 1) \<noteq> 0"
-  shows "strip_while ((=) 0) xs = xs"
-proof (cases "xs = []")
-case (False)
-  then obtain a list where "xs = list @ [a]" by (meson rev_exhaust)
-  then have "a \<noteq> 0" using assms
-  by (metis butlast_snoc length_butlast nth_append_length)
-  then show ?thesis
-  by (simp add: \<open>xs = list @ [a]\<close>)
-qed (auto) *)
-
+text \<open>Lemmas for compression error for polynomials. Lemma telescope to go from module level 
+    down to integer coefficients and back up again.\<close>
 
 lemma deg_Poly':
   assumes "Poly xs \<noteq> 0" 
@@ -562,7 +545,6 @@ case False
   finally show ?thesis by auto
 qed
 
-
 lemma length_coeffs_of_gf: "length (coeffs (of_gf (x ::'a gf))) < Suc (nat n)"
 proof (cases "x=0")
 case False
@@ -592,6 +574,8 @@ case (snoc x xs)
   using snoc.hyps snoc.prems by auto
 qed simp
 
+text \<open>Estimate for decompress compress for polynomials. Using the inequality for integers,
+  chain it up to the level of polynomials.\<close>
 
 lemma decompress_compress_poly:
   assumes "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
@@ -858,7 +842,12 @@ proof -
   then show ?thesis by auto
 qed
 
-
+lemma of_int_mod_ring_mult:
+  "of_int_mod_ring (a*b) = of_int_mod_ring a * of_int_mod_ring b"
+unfolding of_int_mod_ring_def
+by (metis (mono_tags, lifting) Rep_mod_ring_inverse mod_mult_eq 
+  of_int_mod_ring.rep_eq of_int_mod_ring_def times_mod_ring.rep_eq)
+  
 
 lemma decompress_1: 
   assumes "a\<in>{0,1}"
@@ -872,9 +861,60 @@ proof -
   have "poly.coeff (of_gf (decompress_poly 1 x)) i = 
         poly.coeff (of_gf (to_module (round((real_of_int q)/2)) * x)) i"
   for i 
-  unfolding decompress_poly_def using of_gf_to_gf'[of "Poly
-         (map (of_int_mod_ring \<circ> (decompress (Suc 0) \<circ> to_int_mod_ring))
-           (coeffs (of_gf x)))"] apply (auto simp add: of_gf_to_gf') sorry
+  proof -
+    have "set (map to_int_mod_ring (coeffs (of_gf x))) \<subseteq> {0,1}" (is "set (?int_coeffs) \<subseteq> _")
+    proof -
+      have "set (coeffs (of_gf x)) \<subseteq> {0,1}" using assms 
+      by (meson forall_coeffs_conv insert_iff subset_code(1))
+      then show ?thesis by auto
+    qed
+    then have "map (decompress 1) (?int_coeffs) = 
+      map ((*) (round (real_of_int q / 2))) (?int_coeffs)"
+    proof (induct "?int_coeffs")
+    case (Cons a xa)
+      then show ?case using decompress_1
+      by (meson map_eq_conv subsetD)
+    qed simp
+    then have "poly.coeff (of_gf (decompress_poly 1 x)) i = 
+      poly.coeff (of_gf (to_gf (Poly (map of_int_mod_ring
+        (map (\<lambda>a. round(real_of_int q / 2) * a) 
+        (?int_coeffs)))))) i"
+      unfolding decompress_poly_def comp_def by presburger
+    also have "\<dots> = poly.coeff (of_gf (to_gf (Poly 
+        (map (\<lambda>a. of_int_mod_ring ((round(real_of_int q / 2)) *  a)) 
+        (?int_coeffs))))) i"
+      using map_map[of of_int_mod_ring "((*) (round (real_of_int q / 2)))"]
+      by (smt (z3) map_eq_conv o_apply)
+    also have "\<dots> = poly.coeff (of_gf (to_gf (Poly 
+        (map (\<lambda>a. of_int_mod_ring (round(real_of_int q / 2)) * of_int_mod_ring a) 
+        (?int_coeffs))))) i"
+      by (simp add: of_int_mod_ring_mult[of "(round(real_of_int q / 2))"])
+    also have "\<dots> = poly.coeff (of_gf (to_gf (Poly 
+        (map (\<lambda>a. of_int_mod_ring (round(real_of_int q / 2)) * a) 
+        (map of_int_mod_ring (?int_coeffs)))))) i"
+      using map_map[symmetric, of 
+        "(\<lambda>a. of_int_mod_ring (round (real_of_int q / 2)) * a ::'a mod_ring)" 
+        "of_int_mod_ring"] unfolding comp_def by presburger
+    also have "\<dots> = poly.coeff (of_gf (to_gf 
+        (Polynomial.smult (of_int_mod_ring (round(real_of_int q / 2))) 
+        (Poly (map of_int_mod_ring (?int_coeffs)))))) i"
+      using smult_Poly[symmetric, of "(of_int_mod_ring (round (real_of_int q / 2)))"] 
+      by metis
+    also have "\<dots> = poly.coeff (of_gf ((to_module (round (real_of_int q / 2)) * 
+      to_gf (Poly (map of_int_mod_ring (?int_coeffs)))))) i"
+      unfolding to_module_def 
+      using to_gf_smult_to_module[of "of_int_mod_ring (round (real_of_int q / 2))"]
+      by metis
+    also have "\<dots> = poly.coeff (of_gf
+       (to_module (round (real_of_int q / 2)) *
+        to_gf (Poly (coeffs (of_gf x)))))i"
+      by (subst map_map[of of_int_mod_ring to_int_mod_ring], unfold comp_def) 
+        (subst of_int_mod_ring_to_int_mod_ring, auto)
+    also have "\<dots> = poly.coeff (of_gf
+       (to_module (round (real_of_int q / 2)) * x))i"
+      by (subst Poly_coeffs) (subst to_gf_of_gf, simp)
+    finally show ?thesis by auto
+  qed
   then have eq: "of_gf (decompress_poly 1 x) = of_gf (to_module (round((real_of_int q)/2)) * x)"
     by (simp add: poly_eq_iff)
   show ?thesis using arg_cong[OF eq, of "to_gf"] to_gf_of_gf[of "decompress_poly 1 x"] 

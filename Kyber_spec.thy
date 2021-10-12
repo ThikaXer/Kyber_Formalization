@@ -377,7 +377,15 @@ lemma deg_of_gf:
 by (metis deg_gf_pos degree_0 degree_gf_poly degree_mod_less' gf_poly_nz of_gf.rep_eq)
 
 definition to_module :: "int \<Rightarrow> 'a gf" where
-  "to_module x = to_gf [: of_int_mod_ring x :]"
+  "to_module x = to_gf (Poly [of_int_mod_ring x ::'a mod_ring])"
+
+lemma to_gf_smult_to_module: 
+  "to_gf (Polynomial.smult a p) = (to_gf (Poly [a])) * (to_gf p)"
+by (metis Poly.simps(1) Poly.simps(2) mult.left_neutral mult_smult_left smult_one to_gf_mult)
+
+lemma of_gf_to_gf_smult:
+  "of_gf (to_gf (Polynomial.smult a p)) = Polynomial.smult a (of_gf (to_gf p))"
+by (simp add: mod_smult_left of_gf_to_gf)
 
 
 end
