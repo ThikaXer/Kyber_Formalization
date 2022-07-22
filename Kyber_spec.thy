@@ -99,6 +99,7 @@ qed
 class gf_spec = prime_card +
   fixes gf_poly' :: "'a itself \<Rightarrow> int poly"
   assumes not_dvd_lead_coeff_gf_poly':  "\<not>int CARD('a) dvd lead_coeff (gf_poly' TYPE('a))"
+    and deg_gf'_pos : "degree (gf_poly' TYPE('a)) > 0"
 
 definition gf_poly :: "'a :: gf_spec mod_ring poly" where
   "gf_poly = of_int_poly (gf_poly' TYPE('a))"
@@ -116,9 +117,10 @@ lemma degree_gf_poly:
   by (subst degree_of_int_poly') (auto simp: of_int_mod_ring_eq_0_iff degree_gf_poly')
 
 
-lemma deg_gf_pos: "deg_gf TYPE('a :: gf_spec) > 0"
-  unfolding degree_gf_poly [symmetric] sorry
- (* by (auto intro!: Nat.gr0I)*)
+lemma deg_gf_pos : "deg_gf TYPE('a :: gf_spec) > 0"
+by (metis deg_gf'_pos degree_gf_poly')
+ (*unfolding degree_gf_poly' [symmetric]   sorry
+   by (auto intro!: Nat.gr0I)*)
 
 
 lemma gf_poly_nz [simp]: "gf_poly \<noteq> 0"
@@ -305,21 +307,28 @@ lemma of_nat_gf_eq_0_iff [simp]:
   using of_int_gf_eq_0_iff[of "int n"] by simp
 
 
-
+(*
+The specifications use 
+n=256 = 2^9
+n' = 9
+q = 7681 or 3329
+k = 3
+*)
 
 
 
 
 locale kyber_spec =
-fixes n n' q k::int
+fixes n q::int and k n'::nat
 assumes
-n_def: "n   = 256" and
-n'_def: "n'  = 9" and 
-q_def: "q   = 7681" and
-k_def: "k = 3"
+n_powr_2: "n = 2 ^ n'" and
+n'_gr_0: "n' > 0" and 
+q_gr_two: "q > 2" and
+q_mod_4: "q mod 4 = 1" and 
+q_prime : "prime q"
 assumes CARD_a: "int (CARD('a :: gf_spec)) = q"
 assumes CARD_k: "int (CARD('k :: finite)) = k"
-assumes n_gt_1: "n > 1"
+
 assumes gf_poly'_eq: "gf_poly' TYPE('a) = Polynomial.monom 1 (nat n) + 1"
 
 begin
@@ -336,24 +345,27 @@ using kyber_spec_axioms kyber_spec_def by (smt (z3))
 
 lemma q_odd: "odd q"
 using kyber_spec_axioms kyber_spec_def
-by (metis odd_numeral)
+ prime_odd_int by blast
 
-lemma q_prime: "prime q"
-using kyber_spec_axioms kyber_spec_def
-by (metis prime_card_int)
 
 text \<open>Some properties of the degree n.\<close>
 
+lemma n_gt_1: "n > 1"
+using kyber_spec_axioms kyber_spec_def
+  by (simp add: n'_gr_0 n_powr_2)
+
 lemma n_nonzero: "n \<noteq> 0" 
-using kyber_spec_axioms kyber_spec_def by (smt (z3))
+using n_gt_1 by auto
 
 lemma n_gt_zero: "n>0" 
-using kyber_spec_axioms kyber_spec_def by (smt (z3))
+using n_gt_1 by auto
 
+(*
 text \<open>In order to make certain that the proof of the scheme goes through, 
   we need $q \cong 1 \mod 4$.\<close>
 lemma q_mod_4: "q mod 4 = 1"
 using q_def by force
+*)
 
 text \<open>Properties in the ring \<open>'a gf\<close>. A good representative has degree up to n.\<close>
 lemma deg_mod_gf_poly:

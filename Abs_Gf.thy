@@ -142,7 +142,7 @@ case False
     have "to_int_mod_ring (-x) = to_int_mod_ring (-x) mod q"
       by (metis CARD_a Rep_mod_ring_mod to_int_mod_ring.rep_eq)
     also have "\<dots> = (- to_int_mod_ring x) mod q" 
-      by (metis (no_types, hide_lams) CARD_a diff_eq_eq mod_add_right_eq 
+      by (metis (no_types, opaque_lifting) CARD_a diff_eq_eq mod_add_right_eq 
         plus_mod_ring.rep_eq to_int_mod_ring.rep_eq uminus_add_conv_diff)
     also have "\<dots> = q - to_int_mod_ring x" 
     proof -
@@ -228,7 +228,7 @@ using abs_infty_q_scale_pos apply presburger
 using abs_infty_q_scale_neg by force
 
 
-
+(*
 lemma abs_infty_q_ineq_1:
 assumes "a = 1"
 shows "abs_infty_q (of_int_mod_ring (round((real_of_int q)/2)) * a) \<ge> 
@@ -258,6 +258,7 @@ proof -
   using abs_infty_q_minus by simp
   then show ?thesis using abs_infty_q_ineq_1[of "-a"] using assms by auto
 qed
+*)
 
 lemma of_gf_mult:
   "of_gf (a * b) = of_gf a * of_gf b mod gf_poly"
@@ -273,6 +274,59 @@ lemma to_module_mult:
   "poly.coeff (of_gf (to_module s * a)) x1 = 
    of_int_mod_ring (s) * poly.coeff (of_gf a) x1"
 using of_gf_scale[of s a] by simp
+
+lemma odd_round_up:
+assumes "odd x"
+shows "round (real_of_int x / 2) = (x+1) div 2"
+proof -
+  have "round (real_of_int x / 2) = round (real_of_int (x+1) /2)"
+    using assms unfolding round_def 
+    by (metis (no_types, opaque_lifting) add.commute add_divide_distrib even_add even_succ_div_2 
+    floor_divide_of_int_eq odd_one of_int_add of_int_hom.hom_one of_int_numeral)
+  also have "\<dots> = (x+1) div 2"
+    by (metis add_divide_distrib calculation floor_divide_of_int_eq of_int_add of_int_hom.hom_one 
+    of_int_numeral round_def)
+  finally show ?thesis by blast
+qed
+
+lemma floor_unique:
+assumes "real_of_int a \<le> x" "x < a+1"
+shows "floor x = a"
+  using assms(1) assms(2) by linarith
+
+lemma same_floor:
+assumes "real_of_int a \<le> x" "real_of_int a \<le> y" "x < a+1" "y < a+1"
+shows "floor x = floor y"
+using assms floor_unique  by presburger
+
+lemma one_mod_four_round:
+assumes "x mod 4 = 1"
+shows "round (real_of_int x / 4) = (x-1) div 4"
+proof -
+  have leq: "(x-1) div 4 \<le> real_of_int x / 4  + 1 / 2"
+    using assms by linarith 
+  have gr: "real_of_int x / 4  + 1 / 2 < (x-1) div 4 + 1" 
+  proof -
+    have "x+2 < 4 * ((x-1) div 4 + 1)" 
+    proof -
+      have *:  "(x-1) div 4 + 1 = (x+3) div 4" by auto
+      have "4 dvd x + 3" using assms by presburger
+      then have "4 * ((x+3) div 4) = x+3" by (subst dvd_imp_mult_div_cancel_left, auto)
+      then show ?thesis unfolding * by auto
+    qed
+    then show ?thesis by auto
+  qed
+  show "round (real_of_int x / 4) = (x-1) div 4"
+    using floor_unique[OF leq gr] unfolding round_def by auto
+qed
+
+lemma odd_half_floor:
+assumes "odd x"
+shows "\<lfloor>real_of_int x / 2\<rfloor> = (x-1) div 2"
+using assms 
+  by (metis add.commute diff_add_cancel even_add even_succ_div_2 floor_divide_of_int_eq 
+  odd_one of_int_numeral)
+
 
 
 lemma abs_infty_poly_ineq_pm_1:
@@ -305,8 +359,23 @@ proof -
     unfolding abs_infty_q_def using to_int_mod_ring_of_int_mod_ring 
     by (simp add: CARD_a mod_add_left_eq mod_plus_minus_def of_int_mod_ring.rep_eq 
       to_int_mod_ring.rep_eq)
+  also have "\<dots> = \<bar>((q + 1) div 2) mod+- q\<bar>" using odd_round_up[OF q_odd] by auto 
+  also have "\<dots> = \<bar>((2 * q) div 2) mod q - (q - 1) div 2\<bar>" 
+    unfolding mod_plus_minus_def odd_half_floor[OF q_odd] using q_odd 
+    by (smt (verit, ccfv_SIG) even_plus_one_iff even_succ_div_2 odd_two_times_div_two_succ)
+  also have "\<dots> = \<bar>(q-1) div 2\<bar>" using q_odd 
+    by (subst nonzero_mult_div_cancel_left[of 2 q], simp) 
+       (simp add: abs_div abs_minus_commute)
+  also have "\<dots> = 2 * ((q-1) div 4)" 
+  proof -
+    have "(q-1) div 2 > 0" by (simp add: div_positive_int q_gt_two)
+    then have "\<bar>(q-1) div 2\<bar> = (q-1) div 2" by auto
+    also have "\<dots> = 2 * ((q-1) div 4)" 
+      by (subst div_mult_swap) (use q_mod_4 in \<open>metis dvd_minus_mod\<close>, force)
+    finally show ?thesis by blast
+  qed
   also have "\<dots> = 2 * round (real_of_int q / 4)" 
-    unfolding mod_plus_minus_def by (simp add: q_def round_def)
+    unfolding odd_round_up[OF q_odd] one_mod_four_round[OF q_mod_4] by (simp add: round_def)
   finally show ?thesis unfolding abs_infty_poly_def by simp
 qed
 

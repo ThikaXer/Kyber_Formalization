@@ -32,6 +32,7 @@ text \<open>Compression only works for \<open>x \<in> Z_q\<close> and outputs an
   in \<open>{0,\<dots> , 2 d − 1}\<close> , where d is a positive integer with \<open>d < \<lceil>log_2 (q)\<rceil>\<close> . 
   For compression we omit the least important bits. Decompression rescales to the mudulus q.\<close>
 
+
 definition compress :: "nat \<Rightarrow> int \<Rightarrow> int" where 
   "compress d x = round (real_of_int (2 ^ d * x) / real_of_int q) mod (2^d)"
 
@@ -93,13 +94,16 @@ lemma decompress_zero_unique:
           "of_nat d < \<lceil>(log 2 q)::real\<rceil>"
   shows "s = 0"
 proof -
-  have "real_of_int q / real_of_int 2^d > 1" using twod_lt_q[OF assms(3)] 
+  let ?x = "real_of_int q * real_of_int s / real_of_int 2 ^ d + 1 / 2"
+  have "0 \<le> ?x \<and> ?x < 1" using assms(1) unfolding decompress_def round_def 
+    using floor_correct[of ?x] by auto
+  then have "real_of_int q * real_of_int s / real_of_int 2 ^ d < 1/2" by linarith
+  moreover have "real_of_int q / real_of_int 2^d > 1" using twod_lt_q[OF assms(3)] 
     by (simp add: powr_realpow)
-  then show ?thesis 
-    using assms unfolding decompress_def round_def 
-    by (smt (verit, best) atLeastAtMost_iff divide_less_eq_1_pos divide_nonneg_nonneg 
-    floor_correct nonzero_mult_div_cancel_left of_int_hom.hom_one of_int_less_iff 
-    zero_less_power)
+  ultimately have "real_of_int s < 1/2" 
+  by (smt (verit, best) divide_less_eq_1_pos field_sum_of_halves pos_divide_less_eq 
+    times_divide_eq_left)
+  then show ?thesis using assms(2) by auto 
 qed
 
 text \<open>Range of compress and decompress functions\<close>
@@ -117,8 +121,9 @@ using decompress_def assms
 proof (auto, goal_cases)
 case 1
   then show ?case 
-  by (smt (verit, best) divide_divide_eq_right divide_nonneg_nonneg of_int_nonneg 
-    q_def round_0 round_mono zero_le_power)
+  by (smt (verit, best) divide_eq_0_iff divide_numeral_1 less_divide_eq_1_pos 
+    mult_of_int_commute nonzero_mult_div_cancel_right of_int_eq_0_iff of_int_less_1_iff 
+    powr_realpow q_gt_zero q_nonzero round_0 round_mono twod_lt_q zero_less_power)
 next
 case 2
   have "real_of_int q / 2 ^ d > 1" using twod_lt_q[OF assms(2)]
@@ -270,8 +275,8 @@ proof -
    qed
   also have "\<dots> = 1/2 + (real_of_int q / real_of_int (2^d)) * 
       abs (real_of_int (compress d x) - real_of_int (2^d) / real_of_int q * real_of_int x)"
-    by (smt (verit, best) divide_nonneg_nonneg left_diff_distrib mult_less_cancel_left_pos 
-      not_exp_less_eq_0_int of_int_hom.hom_one of_int_le_iff q_def right_diff_distrib)
+    by (subst abs_mult) (smt (verit, best) assms(2) less_divide_eq_1_pos of_int_add 
+      of_int_hom.hom_one of_int_power powr_realpow twod_lt_q zero_less_power)
   also have "\<dots> \<le> 1/2 + (real_of_int q / real_of_int (2^d)) * (1 / 2) "
     using compress_no_mod[OF assms] 
     using of_int_round_abs_le[of "real_of_int (2 ^ d) * real_of_int x / real_of_int q"]
@@ -443,17 +448,38 @@ proof (induct xs)
     by simp (metis Poly.simps(1) Suc_le_eq Suc_pred le_imp_less_Suc length_greater_0_conv)
 qed simp
 
+lemma of_int_mod_ring_eq_0:
+  "((of_int_mod_ring x :: 'a mod_ring) = 0) \<longleftrightarrow> (x mod q = 0)"
+by (metis CARD_a mod_0 of_int_code(2) of_int_mod_ring.abs_eq of_int_mod_ring.rep_eq 
+  of_int_of_int_mod_ring)
+
+lemma dropWhile_mod_ring:
+  "dropWhile ((=)0) (map of_int_mod_ring xs :: 'a mod_ring list) = 
+   map of_int_mod_ring (dropWhile (\<lambda>x. x mod q = 0) xs)"
+proof (induct xs)
+  case (Cons x xs)
+  have "dropWhile ((=) 0) (map of_int_mod_ring (x # xs)) = 
+        dropWhile ((=) 0) ((of_int_mod_ring x :: 'a mod_ring) # (map of_int_mod_ring xs))"
+    by auto
+  also have "\<dots> = (if 0 = (of_int_mod_ring x :: 'a mod_ring) 
+    then dropWhile ((=) 0) (map of_int_mod_ring xs) 
+    else map of_int_mod_ring (x # xs))" 
+    unfolding dropWhile.simps(2)[of "((=) 0)" "of_int_mod_ring x :: 'a mod_ring" "map of_int_mod_ring xs"]
+    by auto
+  also have "\<dots> = (if x mod q = 0 
+    then map of_int_mod_ring (dropWhile (\<lambda>x. x mod q = 0) xs)
+    else map of_int_mod_ring (x # xs))" 
+    using of_int_mod_ring_eq_0 unfolding Cons.hyps by auto
+  also have "\<dots> = map of_int_mod_ring (dropWhile (\<lambda>x. x mod q = 0) (x # xs))"
+    unfolding dropWhile.simps(2) by auto
+  finally show ?case by blast
+qed simp
 
 lemma strip_while_mod_ring:
   "(strip_while ((=) 0) (map of_int_mod_ring xs :: 'a mod_ring list)) = 
     map of_int_mod_ring (strip_while (\<lambda>x. x mod q = 0)  xs)"
-proof (induct xs rule: rev_induct)
-case (snoc x xs)
-  then show ?case 
-  by simp (metis (no_types, hide_lams) CARD_a bits_mod_0 mod_mod_trivial mult.right_neutral 
-    of_int_mod_ring.rep_eq of_int_mod_ring_hom.hom_zero of_int_mod_ring_to_int_mod_ring 
-    to_int_mod_ring_mult)
-qed simp
+unfolding strip_while_def comp_def rev_map dropWhile_mod_ring by auto
+
 
 lemma of_gf_to_gf_Poly: 
   assumes "length (xs :: int list) < Suc (nat n)"
@@ -464,9 +490,9 @@ lemma of_gf_to_gf_Poly:
     (is "_ = ?Poly")
 proof -
   have deg: "degree (?Poly) < n"
-    using deg_Poly'[of "map of_int_mod_ring xs"] assms
-    by (smt (verit, del_insts) Suc_diff_1 degree_0 degree_Poly le_less_trans 
-      length_greater_0_conv length_map less_Suc_eq zless_nat_eq_int_zless)
+    using deg_Poly'[of "map of_int_mod_ring xs"] assms 
+    by (smt (verit, del_insts) One_nat_def Suc_pred degree_0 length_greater_0_conv 
+      length_map less_Suc_eq_le order_less_le_trans zless_nat_eq_int_zless)
   then show ?thesis
     using of_gf_to_gf[of "?Poly"] deg_mod_gf_poly[of "?Poly"] 
       deg_gf_n by (smt (verit, best) of_nat_less_imp_less)
@@ -620,7 +646,7 @@ proof -
         strip_while (\<lambda>x. x = 0) compress_x"
       proof -
         have "compress d s = 0" if "compress d s mod q = 0" for s
-          unfolding compress_def using twod_lt_q 
+          using that unfolding compress_def using twod_lt_q 
           by (smt (verit, ccfv_threshold) Euclidean_Division.pos_mod_bound 
             Euclidean_Division.pos_mod_sign assms(1) compress_def mod_pos_pos_trivial 
             of_int_add of_int_hom.hom_one of_int_power_less_of_int_cancel_iff 
@@ -924,7 +950,7 @@ qed
 text \<open>Compression and decompression for vectors.\<close>
 
 definition map_vector :: "('b \<Rightarrow> 'b) \<Rightarrow> ('b, 'n) vec \<Rightarrow> ('b, 'n::finite) vec" where
-  "map_vector f v = (\<chi> i. f (v $ i))"
+  "map_vector f v = (\<chi> i. f (vec_nth v i))"
 
 text \<open>Compression and decompression of vectors in \<open>\<int>_q[X]/(X^n+1)\<close>.\<close>
 

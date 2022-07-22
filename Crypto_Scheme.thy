@@ -4,6 +4,7 @@ imports Kyber_spec
         Compress
         Abs_Gf
         Coeffs
+        "HOL-Probability.Probability"
 
 begin
 
@@ -258,15 +259,28 @@ proof -
   then show ?thesis by (simp flip: m'_def) (metis to_gf_of_gf)
 qed
 
+(*
+definition compress_error :: "nat \<Rightarrow> int \<Rightarrow> int" where
+  "compress_error d y = (y - decompress d (compress d y)) mod+- q"
 
+definition get_Psi  where
+  "get_Psi d = do{
+    y <- pmf_of_set (UNIV :: ('a gf, 'k) vec set);
+    return_pmf (compress_error_vec d y)
+  }"
 
-
-
-lemma kyber_one_minus_delta_correct:
-  assumes "delta = P ()"
-
-
-
+lemma LWE_hardness_assumptions:
+  fixes A s r e e1 e2 dt du dv ct cu cv t u v
+  assumes "t = key_gen dt A s e"
+          "(u,v) = encrypt t A r e1 e2 dt du dv m"
+          "ct = compress_error_vec dt (A *v s + e)"
+          "cu = compress_error_vec du ((transpose A) *v r + e1)"
+          "cv = compress_error_poly dv (scalar_product (decompress_vec dt t) r + e2 + 
+            to_module (round((real_of_int q)/2)) * m)"
+  shows "no_distinction ct (get_Psi dt)"
+        "no_distinction cu (get_Psi du)"
+        "no_distinction cv (get_Psi dv)"
+*)
 
 
 
@@ -283,14 +297,6 @@ fun key_gen :: "seed \<Rightarrow> seed \<Rightarrow> vector" where
 "key_gen rho sigma = (compress q (A s + e) d_t) where A
 = sample_matrix q k rho and (s,e) = sample_vector beta_eta_k sigma"
 *)
-
-
-
-
-
-
-
-
 
 
 
