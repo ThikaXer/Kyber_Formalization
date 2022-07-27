@@ -1,0 +1,42 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{isabelle,isabellesym}
+\usepackage{amsfonts, amsmath, amssymb}
+\usepackage[T1]{fontenc}
+
+% this should be the last package used
+\usepackage{pdfsetup}
+\usepackage[shortcuts]{extdash}
+
+% urls in roman style, theory text in math-similar italics
+\urlstyle{rm}
+\isabellestyle{rm}
+
+
+\begin{document}
+
+\title{$\delta$-correctness proof of CRYSTAL-KYBER}
+\author{Katharina Kreuzer}
+\maketitle
+
+\begin{abstract}
+This article formalizes the specification and the algorithm of CRYSTAL-KYBER and verifies its $\delta$-correctness proof. 
+
+CRYSTAL-KYBER is a cryptographic scheme (precisely a key encapsulation mechanism) which is a finalist of the third round of the NIST standardization process of post-quantum cryptography. 
+\end{abstract}
+
+
+\newpage
+\tableofcontents
+
+\newpage
+\parindent 0pt\parskip 0.5ex
+
+\input{session}
+
+\nocite{kyber}
+
+\bibliographystyle{abbrv}
+\bibliography{root}
+
+\end{document}
+
