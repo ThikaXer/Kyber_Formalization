@@ -2,7 +2,7 @@ theory Compress
 
 imports Kyber_spec
         Mod_Plus_Minus
-        Abs_Gf
+        Abs_Fr
         "HOL-Analysis.Finite_Cartesian_Product"
 
 begin
@@ -391,50 +391,50 @@ text \<open>We have now defined compression only on integers (ie \<open>{0..<q}\
   We need to extend this notion to the ring \<open>\<int>_q[X]/(X^n+1)\<close>. Here, a compressed polynomial 
   is the compression on every coefficient.\<close>
 
-definition compress_poly :: "nat \<Rightarrow> 'a gf \<Rightarrow> 'a gf" where
+definition compress_poly :: "nat \<Rightarrow> 'a fr \<Rightarrow> 'a fr" where
   "compress_poly d = 
-        to_gf \<circ>
+        to_fr \<circ>
         Poly \<circ>
         (map of_int_mod_ring) \<circ>
         (map (compress d)) \<circ>
         (map to_int_mod_ring) \<circ>
         coeffs \<circ>
-        of_gf"
+        of_fr"
 
 (*
 Types:
 
-to_gf :: 'a mod_ring poly \<Rightarrow> 'a gf
+to_fr :: 'a mod_ring poly \<Rightarrow> 'a fr
 Poly ::  'a mod_ring list \<Rightarrow> 'a mod_ring poly
 map of_int_mod_ring :: int list \<Rightarrow> 'a mod_ring list
 map compress :: int list \<Rightarrow> int list
 map to_int_mod_ring :: 'a mod_ring list \<Rightarrow> int list
 coeffs :: 'a mod_ring poly \<Rightarrow> 'a mod_ring list
-of_gf :: 'a gf \<Rightarrow> 'a mod_ring poly
+of_fr :: 'a fr \<Rightarrow> 'a mod_ring poly
 
 *)
 
 
-definition decompress_poly :: "nat \<Rightarrow> 'a gf \<Rightarrow> 'a gf" where
+definition decompress_poly :: "nat \<Rightarrow> 'a fr \<Rightarrow> 'a fr" where
   "decompress_poly d = 
-        to_gf \<circ>
+        to_fr \<circ>
         Poly \<circ>
         (map of_int_mod_ring) \<circ>
         (map (decompress d)) \<circ>
         (map to_int_mod_ring) \<circ>
         coeffs \<circ>
-        of_gf"
+        of_fr"
 
 (*
 Types:
 
-to_gf :: 'a mod_ring poly \<Rightarrow> 'a gf
+to_fr :: 'a mod_ring poly \<Rightarrow> 'a fr
 Poly ::  'a mod_ring list \<Rightarrow> 'a mod_ring poly
 map of_int_mod_ring :: int list \<Rightarrow> 'a mod_ring list
 map compress :: int list \<Rightarrow> int list
 map to_int_mod_ring :: 'a mod_ring list \<Rightarrow> int list
 coeffs :: 'a mod_ring poly \<Rightarrow> 'a mod_ring list
-of_gf :: 'a gf \<Rightarrow> 'a mod_ring poly
+of_fr :: 'a fr \<Rightarrow> 'a mod_ring poly
 *)
 text \<open>Lemmas for compression error for polynomials. Lemma telescope to go from module level 
     down to integer coefficients and back up again.\<close>
@@ -481,10 +481,10 @@ lemma strip_while_mod_ring:
 unfolding strip_while_def comp_def rev_map dropWhile_mod_ring by auto
 
 
-lemma of_gf_to_gf_Poly: 
+lemma of_fr_to_fr_Poly: 
   assumes "length (xs :: int list) < Suc (nat n)"
           "xs \<noteq> []"
-  shows "of_gf (to_gf 
+  shows "of_fr (to_fr 
            (Poly (map (of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) xs))) = 
             Poly (map (of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) xs)"
     (is "_ = ?Poly")
@@ -494,8 +494,8 @@ proof -
     by (smt (verit, del_insts) One_nat_def Suc_pred degree_0 length_greater_0_conv 
       length_map less_Suc_eq_le order_less_le_trans zless_nat_eq_int_zless)
   then show ?thesis
-    using of_gf_to_gf[of "?Poly"] deg_mod_gf_poly[of "?Poly"] 
-      deg_gf_n by (smt (verit, best) of_nat_less_imp_less)
+    using of_fr_to_fr[of "?Poly"] deg_mod_fr_poly[of "?Poly"] 
+      deg_fr_n by (smt (verit, best) of_nat_less_imp_less)
 qed
 
 lemma telescope_stripped:
@@ -504,8 +504,8 @@ lemma telescope_stripped:
     "set xs \<subseteq> {0..<q}"
   shows "(map to_int_mod_ring) 
           (coeffs 
-           (of_gf 
-            (to_gf 
+           (of_fr 
+            (to_fr 
              (Poly 
               (map (of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) xs))))) = xs"
 proof (cases "xs = []")
@@ -515,7 +515,7 @@ case False
   have to_int_of_int: "map (to_int_mod_ring \<circ> (of_int_mod_ring :: int \<Rightarrow> 'a mod_ring)) xs = xs"
     using to_int_mod_ring_of_int_mod_ring[OF ge_zero lt_q] 
     by (simp add: map_idI)
-  show ?thesis using assms(2) of_gf_to_gf_Poly[OF assms(1) False] 
+  show ?thesis using assms(2) of_fr_to_fr_Poly[OF assms(1) False] 
     by (auto simp add: to_int_of_int strip_while_mod_ring) 
 qed (simp)
 
@@ -529,8 +529,8 @@ lemma telescope:
     "set xs \<subseteq> {0..<q}"
   shows "(map to_int_mod_ring) 
           (coeffs 
-           (of_gf 
-            (to_gf 
+           (of_fr 
+            (to_fr 
              (Poly 
               (map (of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) xs))))) = 
     strip_while (\<lambda>x. x mod q = 0) xs"
@@ -541,9 +541,9 @@ next
 case False
   let ?of_int = "(map (of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) xs)"
   have "xs \<noteq> []" using False by auto
-  then have "(map to_int_mod_ring) (coeffs (of_gf (to_gf (Poly ?of_int)))) = 
+  then have "(map to_int_mod_ring) (coeffs (of_fr (to_fr (Poly ?of_int)))) = 
     (map to_int_mod_ring) (coeffs (Poly ?of_int))"
-    using of_gf_to_gf_Poly[OF assms(1)] by auto
+    using of_fr_to_fr_Poly[OF assms(1)] by auto
   also have "\<dots> = (map to_int_mod_ring) (strip_while ((=) 0) ?of_int)" 
     by auto
   also have "\<dots> = map (to_int_mod_ring \<circ> (of_int_mod_ring :: int \<Rightarrow> 'a mod_ring))
@@ -571,12 +571,12 @@ case False
   finally show ?thesis by auto
 qed
 
-lemma length_coeffs_of_gf: "length (coeffs (of_gf (x ::'a gf))) < Suc (nat n)"
+lemma length_coeffs_of_fr: "length (coeffs (of_fr (x ::'a fr))) < Suc (nat n)"
 proof (cases "x=0")
 case False
-  then have "of_gf x \<noteq> 0" by simp
-  then show ?thesis using length_coeffs_degree[of "of_gf x"] deg_of_gf[of x]
-    using deg_gf_n by fastforce
+  then have "of_fr x \<noteq> 0" by simp
+  then show ?thesis using length_coeffs_degree[of "of_fr x"] deg_of_fr[of x]
+    using deg_fr_n by fastforce
 qed  (auto simp add: n_gt_zero) 
 
 lemma strip_while_change: 
@@ -610,18 +610,18 @@ lemma decompress_compress_poly:
          abs_infty_poly (x - x') \<le> round ( real_of_int q / real_of_int (2^(d+1)) )" 
 proof -
   let ?x' = "decompress_poly d (compress_poly d x)"
-  have "abs_infty_q (poly.coeff (of_gf (x - ?x')) xa)
+  have "abs_infty_q (poly.coeff (of_fr (x - ?x')) xa)
        \<le> round (real_of_int q / real_of_int (2 ^ (d + 1)))" for xa
   proof -
-    let ?telescope = "(\<lambda>xs. (map to_int_mod_ring) (coeffs (of_gf (to_gf (Poly 
+    let ?telescope = "(\<lambda>xs. (map to_int_mod_ring) (coeffs (of_fr (to_fr (Poly 
             (map (of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) xs))))))"
     define compress_x where 
-      "compress_x =  map (compress d \<circ> to_int_mod_ring) (coeffs (of_gf x))"
+      "compress_x =  map (compress d \<circ> to_int_mod_ring) (coeffs (of_fr x))"
     let ?to_Poly = "(\<lambda>a. Poly (map ((of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) \<circ> decompress d) a))"
-    have "abs_infty_q (poly.coeff (of_gf x) xa -
-      poly.coeff (of_gf (to_gf (?to_Poly (?telescope compress_x)))) xa ) = 
-      abs_infty_q (poly.coeff (of_gf x) xa - 
-      poly.coeff (of_gf (to_gf (?to_Poly (strip_while (\<lambda>x. x = 0) compress_x)))) xa )" 
+    have "abs_infty_q (poly.coeff (of_fr x) xa -
+      poly.coeff (of_fr (to_fr (?to_Poly (?telescope compress_x)))) xa ) = 
+      abs_infty_q (poly.coeff (of_fr x) xa - 
+      poly.coeff (of_fr (to_fr (?to_Poly (strip_while (\<lambda>x. x = 0) compress_x)))) xa )" 
     proof (cases "x = 0")
     case True
       then have "compress_x = []" unfolding compress_x_def by auto
@@ -630,7 +630,7 @@ proof -
     case False
       then have nonempty:"compress_x \<noteq> []" unfolding compress_x_def by simp
       have "length compress_x < Suc (nat n)" 
-         by (auto simp add: compress_x_def length_coeffs_of_gf)
+         by (auto simp add: compress_x_def length_coeffs_of_fr)
       moreover have "set compress_x \<subseteq> {0..<q}" 
       proof -
         have to: "to_int_mod_ring (s::'a mod_ring) \<in> {0..q - 1}" for s
@@ -656,14 +656,14 @@ proof -
           using twod_lt_q compress_def that by force
         then have left: "\<And>s. \<not> (compress d s mod q = 0) \<longrightarrow> \<not> (compress d s = 0)" by simp
         have "strip_while (\<lambda>x. x mod q = 0) compress_x = 
-              strip_while (\<lambda>x. x mod q = 0) (map (compress d) (map to_int_mod_ring (coeffs (of_gf x))))"
+              strip_while (\<lambda>x. x mod q = 0) (map (compress d) (map to_int_mod_ring (coeffs (of_fr x))))"
               (is "_ = strip_while (\<lambda>x. x mod q = 0) (map (compress d) ?rest)")
           unfolding compress_x_def by simp
         also have "\<dots> = map (compress d) (strip_while ((\<lambda>y. y mod q = 0) \<circ> compress d)
-          (map to_int_mod_ring (coeffs (of_gf x))))"
+          (map to_int_mod_ring (coeffs (of_fr x))))"
           using strip_while_map[of "\<lambda>y. y mod q = 0" "compress d"] by blast
         also have "\<dots> = map (compress d) (strip_while ((\<lambda>y. y = 0) \<circ> compress d)
-          (map to_int_mod_ring (coeffs (of_gf x))))"
+          (map to_int_mod_ring (coeffs (of_fr x))))"
           by (smt (verit, best) comp_eq_dest_lhs left right strip_while_change)
         also have "\<dots> = strip_while (\<lambda>x. x = 0) (map (compress d) ?rest)"
           using strip_while_map[of "\<lambda>y. y = 0" "compress d", symmetric] by blast
@@ -671,7 +671,7 @@ proof -
       qed
       ultimately show ?thesis by auto
     qed
-    also have "\<dots> = abs_infty_q (poly.coeff (of_gf x) xa -
+    also have "\<dots> = abs_infty_q (poly.coeff (of_fr x) xa -
       poly.coeff (?to_Poly (strip_while (\<lambda>x. x = 0) compress_x)) xa )" 
     proof (cases "?to_Poly (strip_while (\<lambda>x. x = 0) compress_x) = 0")
     case False
@@ -679,15 +679,15 @@ proof -
         length (map ((of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) \<circ> decompress d) 
         (strip_while (\<lambda>x. x = 0) compress_x)) - 1" using deg_Poly'[OF False] .
       moreover have "length (map (of_int_mod_ring \<circ> decompress d) 
-          (strip_while (\<lambda>x. x = 0) compress_x)) \<le> length (coeffs (of_gf x))"
+          (strip_while (\<lambda>x. x = 0) compress_x)) \<le> length (coeffs (of_fr x))"
         unfolding compress_x_def by (metis length_map length_strip_while_le)
-      moreover have "length (coeffs (of_gf x)) - 1 < deg_gf TYPE('a)" 
-        using deg_of_gf degree_eq_length_coeffs by metis
+      moreover have "length (coeffs (of_fr x)) - 1 < deg_fr TYPE('a)" 
+        using deg_of_fr degree_eq_length_coeffs by metis
       ultimately have deg: "degree (?to_Poly (strip_while (\<lambda>x. x = 0) compress_x)) < 
-        deg_gf TYPE('a)" by auto
-      show ?thesis using of_gf_to_gf' by (simp add: of_gf_to_gf'[OF deg])
+        deg_fr TYPE('a)" by auto
+      show ?thesis using of_fr_to_fr' by (simp add: of_fr_to_fr'[OF deg])
     qed simp
-    also have "\<dots> = abs_infty_q (poly.coeff (of_gf x) xa -
+    also have "\<dots> = abs_infty_q (poly.coeff (of_fr x) xa -
       poly.coeff (Poly (map of_int_mod_ring (strip_while (\<lambda>x. x = 0) 
         (map (decompress d) compress_x)))) xa )" 
     proof -
@@ -713,7 +713,7 @@ proof -
         strip_while (\<lambda>x. x = 0) (map (decompress d) compress_x)" by auto
       then show ?thesis by (metis map_map)
     qed
-    also have "\<dots> = abs_infty_q (poly.coeff (of_gf x) xa -
+    also have "\<dots> = abs_infty_q (poly.coeff (of_fr x) xa -
       poly.coeff (Poly (map of_int_mod_ring (strip_while (\<lambda>x. x mod q = 0) 
         (map (decompress d) compress_x)))) xa )" 
     proof -
@@ -727,12 +727,12 @@ proof -
       using strip_while_change_subset[OF range right left] by auto
       then show ?thesis by auto
     qed
-    also have "\<dots> = abs_infty_q (poly.coeff (of_gf x) xa -
+    also have "\<dots> = abs_infty_q (poly.coeff (of_fr x) xa -
       poly.coeff (Poly (map of_int_mod_ring (map (decompress d) compress_x))) xa )" 
       by (metis Poly_coeffs coeffs_Poly strip_while_mod_ring)
-    also have "\<dots> = abs_infty_q (poly.coeff (of_gf x) xa -
+    also have "\<dots> = abs_infty_q (poly.coeff (of_fr x) xa -
       ((of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) \<circ> decompress d \<circ> compress d \<circ> to_int_mod_ring)
-          (poly.coeff (of_gf x) xa))" using coeffs_Poly 
+          (poly.coeff (of_fr x) xa))" using coeffs_Poly 
     proof (cases "xa < length (coeffs (?to_Poly  compress_x)) ")
     case True
       have "poly.coeff (?to_Poly compress_x) xa =
@@ -745,17 +745,17 @@ proof -
            ! xa" 
         using True by (metis coeffs_Poly nth_strip_while)
       also have "\<dots> = ((of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) \<circ> decompress d \<circ> compress d \<circ> 
-          to_int_mod_ring) (coeffs (of_gf x) ! xa)" 
+          to_int_mod_ring) (coeffs (of_fr x) ! xa)" 
         unfolding compress_x_def 
         by (smt (z3) True coeffs_Poly compress_x_def length_map length_strip_while_le map_map 
           not_less nth_map order_trans)
       also have "\<dots> = ((of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) \<circ> decompress d \<circ> compress d \<circ> 
-          to_int_mod_ring) (poly.coeff (of_gf x) xa)" 
+          to_int_mod_ring) (poly.coeff (of_fr x) xa)" 
         by (metis (no_types, lifting) True coeffs_Poly compress_x_def length_map 
           length_strip_while_le not_less nth_coeffs_coeff order.trans)
       finally have no_coeff: "poly.coeff (?to_Poly compress_x) xa = 
           ((of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) \<circ> decompress d \<circ> compress d \<circ> 
-          to_int_mod_ring) (poly.coeff (of_gf x) xa)" by auto
+          to_int_mod_ring) (poly.coeff (of_fr x) xa)" by auto
       show ?thesis unfolding compress_x_def 
       by (metis compress_x_def map_map no_coeff)
     next
@@ -763,8 +763,8 @@ proof -
       then have "poly.coeff (?to_Poly compress_x) xa = 0"
         by (metis Poly_coeffs coeff_Poly_eq nth_default_def)
       moreover have "((of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) \<circ> decompress d \<circ> 
-          compress d \<circ> to_int_mod_ring) (poly.coeff (of_gf x) xa) = 0" 
-      proof (cases "poly.coeff (of_gf x) xa = 0")
+          compress d \<circ> to_int_mod_ring) (poly.coeff (of_fr x) xa) = 0" 
+      proof (cases "poly.coeff (of_fr x) xa = 0")
       case True
         then show ?thesis using compress_zero decompress_zero by auto
       next
@@ -784,28 +784,28 @@ proof -
     qed
     also have "\<dots> = abs_infty_q (
       ((of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) \<circ> decompress d \<circ> compress d \<circ> to_int_mod_ring)
-          (poly.coeff (of_gf x) xa) - poly.coeff (of_gf x) xa)" 
+          (poly.coeff (of_fr x) xa) - poly.coeff (of_fr x) xa)" 
       using abs_infty_q_minus by (metis minus_diff_eq)
-    also have "\<dots> = \<bar>((decompress d \<circ> compress d \<circ> to_int_mod_ring) (poly.coeff (of_gf x) xa) -
-       to_int_mod_ring (poly.coeff (of_gf x) xa)) mod+- q\<bar>"
+    also have "\<dots> = \<bar>((decompress d \<circ> compress d \<circ> to_int_mod_ring) (poly.coeff (of_fr x) xa) -
+       to_int_mod_ring (poly.coeff (of_fr x) xa)) mod+- q\<bar>"
       unfolding abs_infty_q_def using to_int_mod_ring_of_int_mod_ring 
       by (smt (verit, best) CARD_a comp_apply mod_plus_minus_def of_int_diff 
       of_int_mod_ring.rep_eq of_int_mod_ring_to_int_mod_ring of_int_of_int_mod_ring)
     also have "\<dots> \<le> round (real_of_int q / real_of_int (2 ^ (d + 1)))" 
     proof -
-      have range_to_int_mod_ring: "to_int_mod_ring (poly.coeff (of_gf x) xa) \<in> {0..<q}"
+      have range_to_int_mod_ring: "to_int_mod_ring (poly.coeff (of_fr x) xa) \<in> {0..<q}"
         using to_int_mod_ring_range by auto
       then show ?thesis 
         unfolding abs_infty_q_def Let_def
         using decompress_compress[OF range_to_int_mod_ring assms] by simp
     qed
-    finally have "abs_infty_q (poly.coeff (of_gf x) xa -
-      poly.coeff (of_gf (to_gf (?to_Poly (?telescope compress_x)))) xa ) 
+    finally have "abs_infty_q (poly.coeff (of_fr x) xa -
+      poly.coeff (of_fr (to_fr (?to_Poly (?telescope compress_x)))) xa ) 
       \<le> round (real_of_int q / real_of_int (2 ^ (d + 1)))" by auto
     then show ?thesis unfolding compress_x_def decompress_poly_def compress_poly_def 
       by (auto simp add: o_assoc)
   qed
-  moreover have finite: "finite (range (abs_infty_q \<circ> poly.coeff (of_gf (x - ?x'))))" 
+  moreover have finite: "finite (range (abs_infty_q \<circ> poly.coeff (of_fr (x - ?x'))))" 
     by (metis finite_Max image_comp image_image)
   ultimately show ?thesis unfolding abs_infty_poly_def using Max_le_iff[OF finite] by auto
 qed
@@ -819,13 +819,13 @@ lemma compress_1:
 unfolding compress_def by auto
 
 lemma compress_poly_1:
-  shows "\<forall>i. poly.coeff (of_gf (compress_poly 1 x)) i \<in> {0,1}"
+  shows "\<forall>i. poly.coeff (of_fr (compress_poly 1 x)) i \<in> {0,1}"
 proof -
-  have "poly.coeff (of_gf (compress_poly 1 x)) i \<in> {0,1}" for i
+  have "poly.coeff (of_fr (compress_poly 1 x)) i \<in> {0,1}" for i
   proof -
-    have "set (map (compress 1) ((map to_int_mod_ring \<circ> coeffs \<circ> of_gf) x)) \<subseteq> {0,1}"
+    have "set (map (compress 1) ((map to_int_mod_ring \<circ> coeffs \<circ> of_fr) x)) \<subseteq> {0,1}"
       using compress_1 by auto
-    then have "set ((map (compress 1) \<circ> map to_int_mod_ring \<circ> coeffs \<circ> of_gf) x) \<subseteq> {0,1}"
+    then have "set ((map (compress 1) \<circ> map to_int_mod_ring \<circ> coeffs \<circ> of_fr) x) \<subseteq> {0,1}"
       (is "set (?compressed_1) \<subseteq> _")
       by auto
     then have "set (map (of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) ?compressed_1) \<subseteq> {0,1}"
@@ -839,30 +839,30 @@ proof -
         nth_default_map_eq of_int_mod_ring_hom.hom_zero of_int_mod_ring_to_int_mod_ring 
         singleton_iff to_int_mod_ring_hom.hom_one)
     moreover have "Poly (?of_int_compressed_1)
-      = Poly (?of_int_compressed_1) mod gf_poly" 
+      = Poly (?of_int_compressed_1) mod fr_poly" 
     proof -
-      have "degree (Poly (?of_int_compressed_1)) < deg_gf TYPE('a)" 
+      have "degree (Poly (?of_int_compressed_1)) < deg_fr TYPE('a)" 
       proof (cases "Poly ?of_int_compressed_1 \<noteq> 0")
       case True
         have "degree (Poly ?of_int_compressed_1) \<le> 
           length (map (of_int_mod_ring :: int \<Rightarrow> 'a mod_ring) ?compressed_1) - 1"
           using deg_Poly'[OF True] by simp
-        also have "\<dots> = length ((coeffs \<circ> of_gf) x) - 1" by simp 
-        also have "\<dots> < n" unfolding comp_def using length_coeffs_of_gf
-          by (metis deg_gf_n deg_of_gf degree_eq_length_coeffs nat_int zless_nat_conj)
+        also have "\<dots> = length ((coeffs \<circ> of_fr) x) - 1" by simp 
+        also have "\<dots> < n" unfolding comp_def using length_coeffs_of_fr
+          by (metis deg_fr_n deg_of_fr degree_eq_length_coeffs nat_int zless_nat_conj)
         finally have "degree (Poly ?of_int_compressed_1) < n"
-        using True \<open>int (length ((coeffs \<circ> of_gf) x) - 1) < n\<close> deg_Poly' by fastforce
-        then show ?thesis using deg_gf_n by simp
+        using True \<open>int (length ((coeffs \<circ> of_fr) x) - 1) < n\<close> deg_Poly' by fastforce
+        then show ?thesis using deg_fr_n by simp
       next
       case False
         then show ?thesis 
-        using deg_gf_pos by auto
+        using deg_fr_pos by auto
       qed
       then show ?thesis
-        using deg_mod_gf_poly[of "Poly (?of_int_compressed_1)", symmetric] by auto
+        using deg_mod_fr_poly[of "Poly (?of_int_compressed_1)", symmetric] by auto
     qed
     ultimately show ?thesis unfolding compress_poly_def comp_def
-      using of_gf_to_gf[of "Poly (?of_int_compressed_1)"]  
+      using of_fr_to_fr[of "Poly (?of_int_compressed_1)"]  
       by auto
   qed
   then show ?thesis by auto
@@ -881,16 +881,16 @@ lemma decompress_1:
 unfolding decompress_def using assms by auto 
 
 lemma decompress_poly_1: 
-  assumes "\<forall>i. poly.coeff (of_gf x) i \<in> {0,1}"
+  assumes "\<forall>i. poly.coeff (of_fr x) i \<in> {0,1}"
   shows "decompress_poly 1 x = to_module (round((real_of_int q)/2)) * x"
 proof -
-  have "poly.coeff (of_gf (decompress_poly 1 x)) i = 
-        poly.coeff (of_gf (to_module (round((real_of_int q)/2)) * x)) i"
+  have "poly.coeff (of_fr (decompress_poly 1 x)) i = 
+        poly.coeff (of_fr (to_module (round((real_of_int q)/2)) * x)) i"
   for i 
   proof -
-    have "set (map to_int_mod_ring (coeffs (of_gf x))) \<subseteq> {0,1}" (is "set (?int_coeffs) \<subseteq> _")
+    have "set (map to_int_mod_ring (coeffs (of_fr x))) \<subseteq> {0,1}" (is "set (?int_coeffs) \<subseteq> _")
     proof -
-      have "set (coeffs (of_gf x)) \<subseteq> {0,1}" using assms 
+      have "set (coeffs (of_fr x)) \<subseteq> {0,1}" using assms 
       by (meson forall_coeffs_conv insert_iff subset_code(1))
       then show ?thesis by auto
     qed
@@ -901,50 +901,50 @@ proof -
       then show ?case using decompress_1
       by (meson map_eq_conv subsetD)
     qed simp
-    then have "poly.coeff (of_gf (decompress_poly 1 x)) i = 
-      poly.coeff (of_gf (to_gf (Poly (map of_int_mod_ring
+    then have "poly.coeff (of_fr (decompress_poly 1 x)) i = 
+      poly.coeff (of_fr (to_fr (Poly (map of_int_mod_ring
         (map (\<lambda>a. round(real_of_int q / 2) * a) 
         (?int_coeffs)))))) i"
       unfolding decompress_poly_def comp_def by presburger
-    also have "\<dots> = poly.coeff (of_gf (to_gf (Poly 
+    also have "\<dots> = poly.coeff (of_fr (to_fr (Poly 
         (map (\<lambda>a. of_int_mod_ring ((round(real_of_int q / 2)) *  a)) 
         (?int_coeffs))))) i"
       using map_map[of of_int_mod_ring "((*) (round (real_of_int q / 2)))"]
       by (smt (z3) map_eq_conv o_apply)
-    also have "\<dots> = poly.coeff (of_gf (to_gf (Poly 
+    also have "\<dots> = poly.coeff (of_fr (to_fr (Poly 
         (map (\<lambda>a. of_int_mod_ring (round(real_of_int q / 2)) * of_int_mod_ring a) 
         (?int_coeffs))))) i"
       by (simp add: of_int_mod_ring_mult[of "(round(real_of_int q / 2))"])
-    also have "\<dots> = poly.coeff (of_gf (to_gf (Poly 
+    also have "\<dots> = poly.coeff (of_fr (to_fr (Poly 
         (map (\<lambda>a. of_int_mod_ring (round(real_of_int q / 2)) * a) 
         (map of_int_mod_ring (?int_coeffs)))))) i"
       using map_map[symmetric, of 
         "(\<lambda>a. of_int_mod_ring (round (real_of_int q / 2)) * a ::'a mod_ring)" 
         "of_int_mod_ring"] unfolding comp_def by presburger
-    also have "\<dots> = poly.coeff (of_gf (to_gf 
+    also have "\<dots> = poly.coeff (of_fr (to_fr 
         (Polynomial.smult (of_int_mod_ring (round(real_of_int q / 2))) 
         (Poly (map of_int_mod_ring (?int_coeffs)))))) i"
       using smult_Poly[symmetric, of "(of_int_mod_ring (round (real_of_int q / 2)))"] 
       by metis
-    also have "\<dots> = poly.coeff (of_gf ((to_module (round (real_of_int q / 2)) * 
-      to_gf (Poly (map of_int_mod_ring (?int_coeffs)))))) i"
+    also have "\<dots> = poly.coeff (of_fr ((to_module (round (real_of_int q / 2)) * 
+      to_fr (Poly (map of_int_mod_ring (?int_coeffs)))))) i"
       unfolding to_module_def 
-      using to_gf_smult_to_module[of "of_int_mod_ring (round (real_of_int q / 2))"]
+      using to_fr_smult_to_module[of "of_int_mod_ring (round (real_of_int q / 2))"]
       by metis
-    also have "\<dots> = poly.coeff (of_gf
+    also have "\<dots> = poly.coeff (of_fr
        (to_module (round (real_of_int q / 2)) *
-        to_gf (Poly (coeffs (of_gf x)))))i"
+        to_fr (Poly (coeffs (of_fr x)))))i"
       by (subst map_map[of of_int_mod_ring to_int_mod_ring], unfold comp_def) 
         (subst of_int_mod_ring_to_int_mod_ring, auto)
-    also have "\<dots> = poly.coeff (of_gf
+    also have "\<dots> = poly.coeff (of_fr
        (to_module (round (real_of_int q / 2)) * x))i"
-      by (subst Poly_coeffs) (subst to_gf_of_gf, simp)
+      by (subst Poly_coeffs) (subst to_fr_of_fr, simp)
     finally show ?thesis by auto
   qed
-  then have eq: "of_gf (decompress_poly 1 x) = of_gf (to_module (round((real_of_int q)/2)) * x)"
+  then have eq: "of_fr (decompress_poly 1 x) = of_fr (to_module (round((real_of_int q)/2)) * x)"
     by (simp add: poly_eq_iff)
-  show ?thesis using arg_cong[OF eq, of "to_gf"] to_gf_of_gf[of "decompress_poly 1 x"] 
-    to_gf_of_gf[of "to_module (round (real_of_int q / 2)) * x"] by auto
+  show ?thesis using arg_cong[OF eq, of "to_fr"] to_fr_of_fr[of "decompress_poly 1 x"] 
+    to_fr_of_fr[of "to_module (round (real_of_int q / 2)) * x"] by auto
 qed
 
 text \<open>Compression and decompression for vectors.\<close>
@@ -954,10 +954,10 @@ definition map_vector :: "('b \<Rightarrow> 'b) \<Rightarrow> ('b, 'n) vec \<Rig
 
 text \<open>Compression and decompression of vectors in \<open>\<int>_q[X]/(X^n+1)\<close>.\<close>
 
-definition compress_vec :: "nat \<Rightarrow> ('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
+definition compress_vec :: "nat \<Rightarrow> ('a fr, 'k) vec \<Rightarrow> ('a fr, 'k) vec" where
   "compress_vec d = map_vector (compress_poly d)"
 
-definition decompress_vec :: "nat \<Rightarrow> ('a gf, 'k) vec \<Rightarrow> ('a gf, 'k) vec" where
+definition decompress_vec :: "nat \<Rightarrow> ('a fr, 'k) vec \<Rightarrow> ('a fr, 'k) vec" where
   "decompress_vec d = map_vector (decompress_poly d)"
 
 end

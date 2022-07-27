@@ -5,7 +5,7 @@ imports Main "HOL-Computational_Algebra.Computational_Algebra"
   "Berlekamp_Zassenhaus.Poly_Mod_Finite_Field"
 
 begin
-
+section \<open>Type class for factorial ring $\mathbb{Z}_q[x]/(x^n+1)$.\<close>
 lemma of_int_mod_ring_eq_0_iff:
   "(of_int n :: ('n :: {finite, nontriv} mod_ring)) = 0 \<longleftrightarrow> int (CARD('n)) dvd n"
   by transfer auto
@@ -24,7 +24,7 @@ proof (intro antisym)
     using assms by (intro le_degree) auto
 qed
 
-
+text \<open>Modulo relation between two polynomials \<close>
 
 definition mod_poly_rel :: "nat \<Rightarrow> int poly \<Rightarrow> int poly \<Rightarrow> bool" where
   "mod_poly_rel m p q \<longleftrightarrow> (\<forall>n. [poly.coeff p n = poly.coeff q n] (mod (int m)))"
@@ -95,84 +95,86 @@ next
   qed (use * in \<open>auto simp: mod_poly_irreducible_def mod_poly_rel_altdef mod_poly_is_unit_altdef\<close>)
 qed
     
+text \<open>Type class for factorial ring $\mathbb{Z}_q[x]/(p)$. 
+  The polynomial p is represented as \<open>fr_poly'\<close> (an polynomial over the integers).\<close>
 
-class gf_spec = prime_card +
-  fixes gf_poly' :: "'a itself \<Rightarrow> int poly"
-  assumes not_dvd_lead_coeff_gf_poly':  "\<not>int CARD('a) dvd lead_coeff (gf_poly' TYPE('a))"
-    and deg_gf'_pos : "degree (gf_poly' TYPE('a)) > 0"
+class fr_spec = prime_card +
+  fixes fr_poly' :: "'a itself \<Rightarrow> int poly"
+  assumes not_dvd_lead_coeff_fr_poly':  "\<not>int CARD('a) dvd lead_coeff (fr_poly' TYPE('a))"
+    and deg_fr'_pos : "degree (fr_poly' TYPE('a)) > 0"
 
-definition gf_poly :: "'a :: gf_spec mod_ring poly" where
-  "gf_poly = of_int_poly (gf_poly' TYPE('a))"
+text \<open>\<open>fr_poly\<close> is the respecive polynomial in $\mathbb{Z}_q[x]$.\<close>
+definition fr_poly :: "'a :: fr_spec mod_ring poly" where
+  "fr_poly = of_int_poly (fr_poly' TYPE('a))"
 
+text \<open>Functions to get the degree of the polynomials to be factored out.\<close>
+definition (in fr_spec) deg_fr :: "'a itself \<Rightarrow> nat" where
+  "deg_fr _ = degree (fr_poly' TYPE('a))"
 
-definition (in gf_spec) deg_gf :: "'a itself \<Rightarrow> nat" where
-  "deg_gf _ = degree (gf_poly' TYPE('a))"
+lemma degree_fr_poly': "degree (fr_poly' TYPE('a :: fr_spec)) = deg_fr (TYPE('a))"
+  by (simp add: deg_fr_def)
 
-lemma degree_gf_poly': "degree (gf_poly' TYPE('a :: gf_spec)) = deg_gf (TYPE('a))"
-  by (simp add: deg_gf_def)
+lemma degree_fr_poly:
+  "degree (fr_poly :: 'a :: fr_spec mod_ring poly) = deg_fr (TYPE('a))"
+  unfolding fr_poly_def using not_dvd_lead_coeff_fr_poly'[where ?'a = 'a]
+  by (subst degree_of_int_poly') (auto simp: of_int_mod_ring_eq_0_iff degree_fr_poly')
 
-lemma degree_gf_poly:
-  "degree (gf_poly :: 'a :: gf_spec mod_ring poly) = deg_gf (TYPE('a))"
-  unfolding gf_poly_def using not_dvd_lead_coeff_gf_poly'[where ?'a = 'a]
-  by (subst degree_of_int_poly') (auto simp: of_int_mod_ring_eq_0_iff degree_gf_poly')
+lemma deg_fr_pos : "deg_fr TYPE('a :: fr_spec) > 0"
+by (metis deg_fr'_pos degree_fr_poly')
 
+text \<open>The factor polynomial is non-zero.\<close>
+lemma fr_poly_nz [simp]: "fr_poly \<noteq> 0"
+  using deg_fr_pos[where ?'a = 'a] by (auto simp flip: degree_fr_poly)
 
-lemma deg_gf_pos : "deg_gf TYPE('a :: gf_spec) > 0"
-by (metis deg_gf'_pos degree_gf_poly')
- (*unfolding degree_gf_poly' [symmetric]   sorry
-   by (auto intro!: Nat.gr0I)*)
-
-
-lemma gf_poly_nz [simp]: "gf_poly \<noteq> 0"
-  using deg_gf_pos[where ?'a = 'a] by (auto simp flip: degree_gf_poly)
-
-lemma one_mod_gf_poly [simp]: "1 mod (gf_poly :: 'a :: gf_spec mod_ring poly) = 1"
+text \<open>Thus, when factoring out $p$, it has no effect on the neutral element $1$.\<close>
+lemma one_mod_fr_poly [simp]: "1 mod (fr_poly :: 'a :: fr_spec mod_ring poly) = 1"
 proof -
-  have "2 ^ 1 \<le> (2 ^ deg_gf TYPE('a) :: nat)"
-    using deg_gf_pos[where ?'a = 'a] by (intro power_increasing) auto
+  have "2 ^ 1 \<le> (2 ^ deg_fr TYPE('a) :: nat)"
+    using deg_fr_pos[where ?'a = 'a] by (intro power_increasing) auto
   thus ?thesis
-    by (intro mod_eqI[where q = 0]) (auto simp: euclidean_size_poly_def degree_gf_poly)
+    by (intro mod_eqI[where q = 0]) (auto simp: euclidean_size_poly_def degree_fr_poly)
 qed
 
+text \<open>We define a modulo relation for polynomials modulo a polynomial $p=$\<open>fr_poly\<close>.\<close>
+definition fr_rel :: "'a :: fr_spec mod_ring poly \<Rightarrow> 'a mod_ring poly \<Rightarrow> bool" where
+  "fr_rel P Q \<longleftrightarrow> [P = Q] (mod fr_poly)"
 
-definition gf_rel :: "'a :: gf_spec mod_ring poly \<Rightarrow> 'a mod_ring poly \<Rightarrow> bool" where
-  "gf_rel P Q \<longleftrightarrow> [P = Q] (mod gf_poly)"
-
-lemma equivp_gf_rel: "equivp gf_rel"
+lemma equivp_fr_rel: "equivp fr_rel"
   by (intro equivpI sympI reflpI transpI)
-     (auto simp: gf_rel_def cong_sym intro: cong_trans)
+     (auto simp: fr_rel_def cong_sym intro: cong_trans)
 
-quotient_type (overloaded) 'a gf = "'a :: gf_spec mod_ring poly" / gf_rel
-  by (rule equivp_gf_rel)
+text \<open>Using this equivalence relation, we can define the factorial ring as a \<open>quotient_type\<close>.\<close>
+quotient_type (overloaded) 'a fr = "'a :: fr_spec mod_ring poly" / fr_rel
+  by (rule equivp_fr_rel)
 
 (*Changed from "\<lambda>x. (x :: 'q mod_ring poly)" *)
 
 
 (* reduction of a polynomial in \<int>q[X] modulo X^n + 1 *)
-lift_definition to_gf :: "'a :: gf_spec mod_ring poly \<Rightarrow> 'a gf" 
+lift_definition to_fr :: "'a :: fr_spec mod_ring poly \<Rightarrow> 'a fr" 
   is "\<lambda>x. (x :: 'a mod_ring poly)" .
 
 (*Is this correct?? Before:
-of_gf :: "'a :: gf_spec gf \<Rightarrow> 'a mod_ring poly" 
+of_fr :: "'a :: fr_spec fr \<Rightarrow> 'a mod_ring poly" 
 *)
 
 
 (* canonical representative in \<int>q[X] of an element of GF(q,n) *)
-lift_definition of_gf :: "'a gf \<Rightarrow> 'a :: gf_spec mod_ring poly" 
-  is "\<lambda>P::'a mod_ring poly. P mod gf_poly"
-  by (simp add: gf_rel_def cong_def)
+lift_definition of_fr :: "'a fr \<Rightarrow> 'a :: fr_spec mod_ring poly" 
+  is "\<lambda>P::'a mod_ring poly. P mod fr_poly"
+  by (simp add: fr_rel_def cong_def)
 
 
-lemma of_gf_to_gf: "of_gf (to_gf (x)) = x mod gf_poly"
-  apply (auto simp add: of_gf_def to_gf_def)
-  by (metis of_gf.abs_eq of_gf.rep_eq)
+lemma of_fr_to_fr: "of_fr (to_fr (x)) = x mod fr_poly"
+  apply (auto simp add: of_fr_def to_fr_def)
+  by (metis of_fr.abs_eq of_fr.rep_eq)
 
 
-lemma to_gf_of_gf: "to_gf (of_gf (x)) = x"
-  apply (auto simp add: of_gf_def to_gf_def)
-  by (metis (mono_tags, lifting) Quotient3_abs_rep Quotient3_gf Quotient3_rel cong_def gf_rel_def mod_mod_trivial)
+lemma to_fr_of_fr: "to_fr (of_fr (x)) = x"
+  apply (auto simp add: of_fr_def to_fr_def)
+  by (metis (mono_tags, lifting) Quotient3_abs_rep Quotient3_fr Quotient3_rel cong_def fr_rel_def mod_mod_trivial)
 
-lemma eq_to_gf: "x = y \<Longrightarrow> to_gf x = to_gf y" by auto
+lemma eq_to_fr: "x = y \<Longrightarrow> to_fr x = to_fr y" by auto
 
 (* analogous: conversion between 'a mod_ring and int *)
 term "of_int_mod_ring :: int \<Rightarrow> 'a :: finite mod_ring"
@@ -190,72 +192,72 @@ term map_poly (* Wende Funktion f auf alle Koeffizienten an (Vorsicht: f 0 sollt
 
 
 
-(* type class instantiations for gf *)
+(* type class instantiations for fr *)
 
-instantiation gf :: (gf_spec) comm_ring_1
+instantiation fr :: (fr_spec) comm_ring_1
 begin
 
-lift_definition zero_gf :: "'a gf" is "0" .
+lift_definition zero_fr :: "'a fr" is "0" .
 
-lift_definition one_gf :: "'a gf" is "1" .
+lift_definition one_fr :: "'a fr" is "1" .
 
-lift_definition plus_gf :: "'a gf \<Rightarrow> 'a gf \<Rightarrow> 'a gf"
+lift_definition plus_fr :: "'a fr \<Rightarrow> 'a fr \<Rightarrow> 'a fr"
   is "(+)"
-  unfolding gf_rel_def using cong_add by blast
+  unfolding fr_rel_def using cong_add by blast
 
-lift_definition uminus_gf :: "'a gf \<Rightarrow> 'a gf"
+lift_definition uminus_fr :: "'a fr \<Rightarrow> 'a fr"
   is "uminus"
-  unfolding gf_rel_def  using cong_minus_minus_iff by blast
+  unfolding fr_rel_def  using cong_minus_minus_iff by blast
 
-lift_definition minus_gf :: "'a gf \<Rightarrow> 'a gf \<Rightarrow> 'a gf"
+lift_definition minus_fr :: "'a fr \<Rightarrow> 'a fr \<Rightarrow> 'a fr"
   is "(-)"
-  unfolding gf_rel_def using cong_diff by blast
+  unfolding fr_rel_def using cong_diff by blast
 
-lift_definition times_gf :: "'a gf \<Rightarrow> 'a gf \<Rightarrow> 'a gf"
+lift_definition times_fr :: "'a fr \<Rightarrow> 'a fr \<Rightarrow> 'a fr"
   is "(*)"
-  unfolding gf_rel_def using cong_mult by blast
+  unfolding fr_rel_def using cong_mult by blast
 
 instance
 proof
-  show "0 \<noteq> (1 :: 'a gf)"
-    by transfer (simp add: gf_rel_def cong_def)
-qed (transfer; simp add: gf_rel_def algebra_simps; fail)+
+  show "0 \<noteq> (1 :: 'a fr)"
+    by transfer (simp add: fr_rel_def cong_def)
+qed (transfer; simp add: fr_rel_def algebra_simps; fail)+
 
 end
 
-lemma of_gf_0 [simp]: "of_gf 0 = 0"
-  and of_gf_1 [simp]: "of_gf 1 = 1"
-  and of_gf_uminus [simp]: "of_gf (-p) = -of_gf p"
-  and of_gf_add [simp]: "of_gf (p + q) = of_gf p + of_gf q"
-  and of_gf_diff [simp]: "of_gf (p - q) = of_gf p - of_gf q"
+lemma of_fr_0 [simp]: "of_fr 0 = 0"
+  and of_fr_1 [simp]: "of_fr 1 = 1"
+  and of_fr_uminus [simp]: "of_fr (-p) = -of_fr p"
+  and of_fr_add [simp]: "of_fr (p + q) = of_fr p + of_fr q"
+  and of_fr_diff [simp]: "of_fr (p - q) = of_fr p - of_fr q"
   by (transfer; simp add: poly_mod_add_left poly_mod_diff_left; fail)+
 
-lemma to_gf_0 [simp]: "to_gf 0 = 0"
-  and to_gf_1 [simp]: "to_gf 1 = 1"
-  and to_gf_uminus [simp]: "to_gf (-p) = -to_gf p"
-  and to_gf_add [simp]: "to_gf (p + q) = to_gf p + to_gf q"
-  and to_gf_diff [simp]: "to_gf (p - q) = to_gf p - to_gf q"
-  and to_gf_mult [simp]: "to_gf (p * q) = to_gf p * to_gf q"
+lemma to_fr_0 [simp]: "to_fr 0 = 0"
+  and to_fr_1 [simp]: "to_fr 1 = 1"
+  and to_fr_uminus [simp]: "to_fr (-p) = -to_fr p"
+  and to_fr_add [simp]: "to_fr (p + q) = to_fr p + to_fr q"
+  and to_fr_diff [simp]: "to_fr (p - q) = to_fr p - to_fr q"
+  and to_fr_mult [simp]: "to_fr (p * q) = to_fr p * to_fr q"
   by (transfer'; simp; fail)+
 
-lemma to_gf_of_nat [simp]: "to_gf (of_nat n) = of_nat n"
+lemma to_fr_of_nat [simp]: "to_fr (of_nat n) = of_nat n"
   by (induction n) auto
 
-lemma to_gf_of_int [simp]: "to_gf (of_int n) = of_int n"
+lemma to_fr_of_int [simp]: "to_fr (of_int n) = of_int n"
   by (induction n) auto
 
-lemma of_gf_of_nat [simp]: "of_gf (of_nat n) = of_nat n"
+lemma of_fr_of_nat [simp]: "of_fr (of_nat n) = of_nat n"
   by (induction n) auto
 
-lemma of_gf_of_int [simp]: "of_gf (of_int n) = of_int n"
+lemma of_fr_of_int [simp]: "of_fr (of_int n) = of_int n"
   by (induction n) auto
 
-lemma of_gf_eq_0_iff [simp]: "of_gf p = 0 \<longleftrightarrow> p = 0"
-  by transfer (simp add: gf_rel_def cong_def)
+lemma of_fr_eq_0_iff [simp]: "of_fr p = 0 \<longleftrightarrow> p = 0"
+  by transfer (simp add: fr_rel_def cong_def)
 
-lemma to_gf_eq_0_iff:
-  "to_gf p = 0 \<longleftrightarrow> gf_poly dvd p"
-  by transfer (auto simp: gf_rel_def cong_def)
+lemma to_fr_eq_0_iff:
+  "to_fr p = 0 \<longleftrightarrow> fr_poly dvd p"
+  by transfer (auto simp: fr_rel_def cong_def)
 
 
 
@@ -264,27 +266,27 @@ lemma to_gf_eq_0_iff:
 
 (* some more lemmas that will probably be useful *)
 
-lemma to_gf_eq_iff [simp]:
-  "to_gf P = (to_gf Q :: 'a :: gf_spec gf) \<longleftrightarrow> [P = Q] (mod gf_poly)"
-  by transfer (auto simp: gf_rel_def)
+lemma to_fr_eq_iff [simp]:
+  "to_fr P = (to_fr Q :: 'a :: fr_spec fr) \<longleftrightarrow> [P = Q] (mod fr_poly)"
+  by transfer (auto simp: fr_rel_def)
 
 (*
   reduction modulo (X^n + 1) is injective on polynomials of degree < n
-  in particular, this means that card(GF(q^n)) = q^n.
+  in particular, this means that card(FR(q^n)) = q^n.
 *)
-lemma inj_on_to_gf:
+lemma inj_on_to_fr:
   "inj_on
-     (to_gf :: 'a :: gf_spec mod_ring poly \<Rightarrow> 'a gf)
-     {P. degree P < deg_gf TYPE('a)}"
-  by (intro inj_onI) (auto simp: cong_def mod_poly_less simp flip: degree_gf_poly)
+     (to_fr :: 'a :: fr_spec mod_ring poly \<Rightarrow> 'a fr)
+     {P. degree P < deg_fr TYPE('a)}"
+  by (intro inj_onI) (auto simp: cong_def mod_poly_less simp flip: degree_fr_poly)
 
-(* characteristic of GF is exactly q *)
+(* characteristic of factorial ring is exactly q *)
 
-lemma of_int_gf_eq_0_iff [simp]:
-  "of_int n = (0 :: 'a :: gf_spec gf) \<longleftrightarrow> int (CARD('a)) dvd n"
+lemma of_int_fr_eq_0_iff [simp]:
+  "of_int n = (0 :: 'a :: fr_spec fr) \<longleftrightarrow> int (CARD('a)) dvd n"
 proof -
-  have "of_int n = (0 :: 'a gf) \<longleftrightarrow> (of_int n :: 'a mod_ring poly) = 0"
-    by (smt (z3) of_gf_eq_0_iff of_gf_of_int)
+  have "of_int n = (0 :: 'a fr) \<longleftrightarrow> (of_int n :: 'a mod_ring poly) = 0"
+    by (smt (z3) of_fr_eq_0_iff of_fr_of_int)
   also have "\<dots> \<longleftrightarrow> (of_int n :: 'a mod_ring) = 0"
     by (simp add: of_int_poly)
   also have "\<dots> \<longleftrightarrow> int (CARD('a)) dvd n"
@@ -292,19 +294,19 @@ proof -
   finally show ?thesis .
 qed
 
-lemma of_int_gf_eq_of_int_iff:
-  "of_int n = (of_int m :: 'a :: gf_spec gf) \<longleftrightarrow> [n = m] (mod (int (CARD('a))))"
-  using of_int_gf_eq_0_iff[of "n - m", where ?'a = 'a]
-  by (simp del: of_int_gf_eq_0_iff add: cong_iff_dvd_diff)
+lemma of_int_fr_eq_of_int_iff:
+  "of_int n = (of_int m :: 'a :: fr_spec fr) \<longleftrightarrow> [n = m] (mod (int (CARD('a))))"
+  using of_int_fr_eq_0_iff[of "n - m", where ?'a = 'a]
+  by (simp del: of_int_fr_eq_0_iff add: cong_iff_dvd_diff)
 
-lemma of_nat_gf_eq_of_nat_iff:
-  "of_nat n = (of_nat m :: 'a :: gf_spec gf) \<longleftrightarrow> [n = m] (mod CARD('a))"
-  using of_int_gf_eq_of_int_iff[of "int n" "int m"] 
+lemma of_nat_fr_eq_of_nat_iff:
+  "of_nat n = (of_nat m :: 'a :: fr_spec fr) \<longleftrightarrow> [n = m] (mod CARD('a))"
+  using of_int_fr_eq_of_int_iff[of "int n" "int m"] 
   by (simp add: cong_int_iff)
 
-lemma of_nat_gf_eq_0_iff [simp]:
-  "of_nat n = (0 :: 'a :: gf_spec gf) \<longleftrightarrow> CARD('a) dvd n"
-  using of_int_gf_eq_0_iff[of "int n"] by simp
+lemma of_nat_fr_eq_0_iff [simp]:
+  "of_nat n = (0 :: 'a :: fr_spec fr) \<longleftrightarrow> CARD('a) dvd n"
+  using of_int_fr_eq_0_iff[of "int n"] by simp
 
 
 (*
@@ -326,10 +328,10 @@ n'_gr_0: "n' > 0" and
 q_gr_two: "q > 2" and
 q_mod_4: "q mod 4 = 1" and 
 q_prime : "prime q"
-assumes CARD_a: "int (CARD('a :: gf_spec)) = q"
+assumes CARD_a: "int (CARD('a :: fr_spec)) = q"
 assumes CARD_k: "int (CARD('k :: finite)) = k"
 
-assumes gf_poly'_eq: "gf_poly' TYPE('a) = Polynomial.monom 1 (nat n) + 1"
+assumes fr_poly'_eq: "fr_poly' TYPE('a) = Polynomial.monom 1 (nat n) + 1"
 
 begin
 text \<open>Some properties of the modulus q.\<close>
@@ -367,37 +369,37 @@ lemma q_mod_4: "q mod 4 = 1"
 using q_def by force
 *)
 
-text \<open>Properties in the ring \<open>'a gf\<close>. A good representative has degree up to n.\<close>
-lemma deg_mod_gf_poly:
-  assumes "degree x < deg_gf TYPE('a)"
-  shows "x mod (gf_poly :: 'a mod_ring poly) = x"
-using mod_poly_less[of x gf_poly] unfolding deg_gf_def
-by (metis assms degree_gf_poly) 
+text \<open>Properties in the ring \<open>'a fr\<close>. A good representative has degree up to n.\<close>
+lemma deg_mod_fr_poly:
+  assumes "degree x < deg_fr TYPE('a)"
+  shows "x mod (fr_poly :: 'a mod_ring poly) = x"
+using mod_poly_less[of x fr_poly] unfolding deg_fr_def
+by (metis assms degree_fr_poly) 
 
-lemma of_gf_to_gf': 
-  assumes "degree x < deg_gf TYPE('a)"
-  shows "of_gf (to_gf x) = (x ::'a mod_ring poly)"
-using deg_mod_gf_poly[OF assms] of_gf_to_gf[of x] by simp
+lemma of_fr_to_fr': 
+  assumes "degree x < deg_fr TYPE('a)"
+  shows "of_fr (to_fr x) = (x ::'a mod_ring poly)"
+using deg_mod_fr_poly[OF assms] of_fr_to_fr[of x] by simp
 
-lemma deg_gf_n: 
-  "deg_gf TYPE('a) = n"
-unfolding deg_gf_def using gf_poly'_eq n_gt_1
+lemma deg_fr_n: 
+  "deg_fr TYPE('a) = n"
+unfolding deg_fr_def using fr_poly'_eq n_gt_1
 by (simp add: degree_add_eq_left degree_monom_eq)
 
-lemma deg_of_gf: 
-  "degree (of_gf (x ::'a gf)) < deg_gf TYPE('a)"
-by (metis deg_gf_pos degree_0 degree_gf_poly degree_mod_less' gf_poly_nz of_gf.rep_eq)
+lemma deg_of_fr: 
+  "degree (of_fr (x ::'a fr)) < deg_fr TYPE('a)"
+by (metis deg_fr_pos degree_0 degree_fr_poly degree_mod_less' fr_poly_nz of_fr.rep_eq)
 
-definition to_module :: "int \<Rightarrow> 'a gf" where
-  "to_module x = to_gf (Poly [of_int_mod_ring x ::'a mod_ring])"
+definition to_module :: "int \<Rightarrow> 'a fr" where
+  "to_module x = to_fr (Poly [of_int_mod_ring x ::'a mod_ring])"
 
-lemma to_gf_smult_to_module: 
-  "to_gf (Polynomial.smult a p) = (to_gf (Poly [a])) * (to_gf p)"
-by (metis Poly.simps(1) Poly.simps(2) mult.left_neutral mult_smult_left smult_one to_gf_mult)
+lemma to_fr_smult_to_module: 
+  "to_fr (Polynomial.smult a p) = (to_fr (Poly [a])) * (to_fr p)"
+by (metis Poly.simps(1) Poly.simps(2) mult.left_neutral mult_smult_left smult_one to_fr_mult)
 
-lemma of_gf_to_gf_smult:
-  "of_gf (to_gf (Polynomial.smult a p)) = Polynomial.smult a (of_gf (to_gf p))"
-by (simp add: mod_smult_left of_gf_to_gf)
+lemma of_fr_to_fr_smult:
+  "of_fr (to_fr (Polynomial.smult a p)) = Polynomial.smult a (of_fr (to_fr p))"
+by (simp add: mod_smult_left of_fr_to_fr)
 
 
 end

@@ -1,4 +1,4 @@
-theory Abs_Gf
+theory Abs_Fr
 
 imports Mod_Plus_Minus
         Kyber_spec
@@ -8,15 +8,15 @@ begin
 
 context kyber_spec
 begin 
-text \<open>We want to show that \<open>abs_infty_q\<close> is a norm induced by the euclidean norm on the mod_ring,
+text \<open>We want to show that \<open>abs_infty_q\<close> is a norm induced by the euclidean norm on the \<open>mod_ring\<close>,
   while \<open>abs_infty_poly\<close> is the induced norm by \<open>abs_infty_q\<close> on polynomials over the polynomial 
-  ring over the mod_ring. In explicit, we need the triangular inequalities.\<close>
+  ring over the \<open>mod_ring\<close>. In explicit, we need the triangular inequalities.\<close>
 
 definition abs_infty_q :: "('a mod_ring) \<Rightarrow> int" where
   "abs_infty_q p = abs ((to_int_mod_ring p) mod+- q)"
 
-definition abs_infty_poly :: "'a gf \<Rightarrow> int" where
-  "abs_infty_poly p = Max (range (abs_infty_q \<circ> poly.coeff (of_gf p)))"
+definition abs_infty_poly :: "'a fr \<Rightarrow> int" where
+  "abs_infty_poly p = Max (range (abs_infty_q \<circ> poly.coeff (of_fr p)))"
 
 text \<open>Helping lemmas and properties of Max, range and finite\<close>
 
@@ -25,13 +25,13 @@ lemma to_int_mod_ring_range:
 using CARD_a by (simp add: range_to_int_mod_ring)
 
 lemma finite_Max:
-  "finite (range (\<lambda>xa. abs_infty_q (poly.coeff (of_gf x) xa)))"
+  "finite (range (\<lambda>xa. abs_infty_q (poly.coeff (of_fr x) xa)))"
 proof -
-  have finite_range: "finite (range (\<lambda>xa. (poly.coeff (of_gf x) xa)))" 
-  using MOST_coeff_eq_0[of "of_gf x"] by auto
-  have "range (\<lambda>xa. \<bar>to_int_mod_ring (poly.coeff (of_gf x) xa) mod+- q\<bar>) = 
-        (\<lambda>z. \<bar>to_int_mod_ring z mod+- q\<bar>) ` range (poly.coeff (of_gf x))"
-  using range_composition[of "(\<lambda>z. abs (to_int_mod_ring z mod+- q))" "poly.coeff (of_gf x)"] 
+  have finite_range: "finite (range (\<lambda>xa. (poly.coeff (of_fr x) xa)))" 
+  using MOST_coeff_eq_0[of "of_fr x"] by auto
+  have "range (\<lambda>xa. \<bar>to_int_mod_ring (poly.coeff (of_fr x) xa) mod+- q\<bar>) = 
+        (\<lambda>z. \<bar>to_int_mod_ring z mod+- q\<bar>) ` range (poly.coeff (of_fr x))"
+  using range_composition[of "(\<lambda>z. abs (to_int_mod_ring z mod+- q))" "poly.coeff (of_fr x)"] 
     by auto
   then show ?thesis 
     using finite_range finite_image_set[where f = "(\<lambda>z. abs (to_int_mod_ring z) mod+- q)" ] 
@@ -39,14 +39,14 @@ proof -
 qed
 
 lemma finite_Max_sum: 
-  "finite (range (\<lambda>xa. abs_infty_q (poly.coeff (of_gf x) xa + poly.coeff (of_gf y) xa)))"
+  "finite (range (\<lambda>xa. abs_infty_q (poly.coeff (of_fr x) xa + poly.coeff (of_fr y) xa)))"
 proof -
-  have finite_range: "finite (range (\<lambda>xa. (poly.coeff (of_gf x) xa + poly.coeff (of_gf y) xa)))" 
-  using MOST_coeff_eq_0[of "of_gf x"] by auto
-  have "range (\<lambda>xa. \<bar>to_int_mod_ring (poly.coeff (of_gf x) xa + poly.coeff (of_gf y) xa) mod+- q\<bar>) = 
-        (\<lambda>z. \<bar>to_int_mod_ring z mod+- q\<bar>) ` range (\<lambda>xa. poly.coeff (of_gf x) xa + poly.coeff (of_gf y) xa)"
+  have finite_range: "finite (range (\<lambda>xa. (poly.coeff (of_fr x) xa + poly.coeff (of_fr y) xa)))" 
+  using MOST_coeff_eq_0[of "of_fr x"] by auto
+  have "range (\<lambda>xa. \<bar>to_int_mod_ring (poly.coeff (of_fr x) xa + poly.coeff (of_fr y) xa) mod+- q\<bar>) = 
+        (\<lambda>z. \<bar>to_int_mod_ring z mod+- q\<bar>) ` range (\<lambda>xa. poly.coeff (of_fr x) xa + poly.coeff (of_fr y) xa)"
   using range_composition[of "(\<lambda>z. abs (to_int_mod_ring z mod+- q))" 
-    "(\<lambda>xa. poly.coeff (of_gf x) xa + poly.coeff (of_gf y) xa)"] by auto
+    "(\<lambda>xa. poly.coeff (of_fr x) xa + poly.coeff (of_fr y) xa)"] by auto
   then show ?thesis 
     using finite_range finite_image_set[where f = "(\<lambda>z. abs (to_int_mod_ring z) mod+- q)" ] 
     by (auto simp add: abs_infty_q_def)
@@ -69,11 +69,11 @@ qed
 
 lemma finite_Max_sum':
   "finite (range
-     (\<lambda>xa. abs_infty_q (poly.coeff (of_gf x) xa) + abs_infty_q (poly.coeff (of_gf y) xa)))"
+     (\<lambda>xa. abs_infty_q (poly.coeff (of_fr x) xa) + abs_infty_q (poly.coeff (of_fr y) xa)))"
 proof -
-  have finite_range_x: "finite (range (\<lambda>xa. abs_infty_q (poly.coeff (of_gf x) xa)))" 
+  have finite_range_x: "finite (range (\<lambda>xa. abs_infty_q (poly.coeff (of_fr x) xa)))" 
     using finite_Max[of x] by auto
-  have finite_range_y: "finite (range (\<lambda>xa. abs_infty_q (poly.coeff (of_gf y) xa)))" 
+  have finite_range_y: "finite (range (\<lambda>xa. abs_infty_q (poly.coeff (of_fr y) xa)))" 
     using finite_Max[of y] by auto
   show ?thesis using finite_range_plus[OF finite_range_x finite_range_y] by auto
 qed
@@ -111,7 +111,7 @@ proof -
   finally show ?thesis by auto
 qed
 
-text \<open>Show that abs_infty_q is indeed a norm (definite, positive, triangle inequality)\<close>
+text \<open>Show that \<open>abs_infty_q\<close> is indeed a norm (definite, positive, triangle inequality)\<close>
 
 lemma abs_infty_q_definite:
   "abs_infty_q x = 0 \<longleftrightarrow> x = 0"
@@ -260,20 +260,20 @@ proof -
 qed
 *)
 
-lemma of_gf_mult:
-  "of_gf (a * b) = of_gf a * of_gf b mod gf_poly"
-by (metis of_gf_to_gf to_gf_mult to_gf_of_gf)
+lemma of_fr_mult:
+  "of_fr (a * b) = of_fr a * of_fr b mod fr_poly"
+by (metis of_fr_to_fr to_fr_mult to_fr_of_fr)
 
-lemma of_gf_scale:
-  "of_gf (to_module s * b) = Polynomial.smult (of_int_mod_ring s) (of_gf b)"
+lemma of_fr_scale:
+  "of_fr (to_module s * b) = Polynomial.smult (of_int_mod_ring s) (of_fr b)"
 unfolding to_module_def
-  by (auto simp add: of_gf_mult[of "to_gf [:of_int_mod_ring s:]" "b"] of_gf_to_gf) 
-     (simp add: mod_mult_left_eq mod_smult_left of_gf.rep_eq)
+  by (auto simp add: of_fr_mult[of "to_fr [:of_int_mod_ring s:]" "b"] of_fr_to_fr) 
+     (simp add: mod_mult_left_eq mod_smult_left of_fr.rep_eq)
 
 lemma to_module_mult:
-  "poly.coeff (of_gf (to_module s * a)) x1 = 
-   of_int_mod_ring (s) * poly.coeff (of_gf a) x1"
-using of_gf_scale[of s a] by simp
+  "poly.coeff (of_fr (to_module s * a)) x1 = 
+   of_int_mod_ring (s) * poly.coeff (of_fr a) x1"
+using of_fr_scale[of s a] by simp
 
 lemma odd_round_up:
 assumes "odd x"
@@ -330,22 +330,22 @@ using assms
 
 
 lemma abs_infty_poly_ineq_pm_1:
-assumes "\<exists>x. poly.coeff (of_gf a) x \<in> {of_int_mod_ring (-1),1}"
+assumes "\<exists>x. poly.coeff (of_fr a) x \<in> {of_int_mod_ring (-1),1}"
 shows "abs_infty_poly (to_module (round((real_of_int q)/2)) * a) \<ge> 
               2 * round (real_of_int q / 4)"
 proof -
   let ?x = "to_module (round((real_of_int q)/2)) * a"
-  obtain x1 where x1_def: "poly.coeff (of_gf a) x1 \<in> {of_int_mod_ring(-1),1}" using assms by auto
+  obtain x1 where x1_def: "poly.coeff (of_fr a) x1 \<in> {of_int_mod_ring(-1),1}" using assms by auto
   have "abs_infty_poly (to_module (round((real_of_int q)/2)) * a)
-        \<ge> abs_infty_q (poly.coeff (of_gf (to_module (round (real_of_int q / 2)) * a)) x1)" 
+        \<ge> abs_infty_q (poly.coeff (of_fr (to_module (round (real_of_int q / 2)) * a)) x1)" 
     unfolding abs_infty_poly_def using x1_def by (simp add: finite_Max)
-  also have "abs_infty_q (poly.coeff (of_gf (to_module (round (real_of_int q / 2)) * a)) x1)
+  also have "abs_infty_q (poly.coeff (of_fr (to_module (round (real_of_int q / 2)) * a)) x1)
              = abs_infty_q (of_int_mod_ring (round (real_of_int q / 2))
-                  * (poly.coeff (of_gf a) x1))" 
+                  * (poly.coeff (of_fr a) x1))" 
     using to_module_mult[of "round (real_of_int q / 2)" a] by simp
   also have "\<dots> = abs_infty_q (of_int_mod_ring (round (real_of_int q / 2)))" 
   proof -
-    consider "poly.coeff (of_gf a) x1=1" | "poly.coeff (of_gf a) x1 = of_int_mod_ring (-1)" 
+    consider "poly.coeff (of_fr a) x1=1" | "poly.coeff (of_fr a) x1 = of_int_mod_ring (-1)" 
       using x1_def by auto
     then show ?thesis 
     proof (cases)
@@ -418,23 +418,23 @@ proof -
     by (auto simp add: abs_infty_q_def mod_plus_minus_def)
 qed
 
-text \<open>Show that abs_infty_poly is indeed a norm (definite, positive, triangle inequality)\<close>
+text \<open>Show that \<open>abs_infty_poly\<close> is indeed a norm (definite, positive, triangle inequality)\<close>
 
 lemma abs_infty_poly_definite:
   "abs_infty_poly x = 0 \<longleftrightarrow> x = 0"
 proof (auto simp add: abs_infty_poly_def abs_infty_q_definite)
-  assume "(MAX xa. abs_infty_q (poly.coeff (of_gf x) xa)) = 0"
-  then have abs_le_zero: "abs_infty_q (poly.coeff (of_gf x) xa) \<le> 0" for xa
+  assume "(MAX xa. abs_infty_q (poly.coeff (of_fr x) xa)) = 0"
+  then have abs_le_zero: "abs_infty_q (poly.coeff (of_fr x) xa) \<le> 0" for xa
     using Max_ge[OF finite_Max[of x], 
-      of "abs_infty_q (poly.coeff (of_gf x) xa)"]
+      of "abs_infty_q (poly.coeff (of_fr x) xa)"]
     by (auto simp add: Max_ge[OF finite_Max])
-  have "abs_infty_q (poly.coeff (of_gf x) xa) = 0" for xa 
-    using abs_infty_q_pos[of "poly.coeff (of_gf x) xa"] abs_le_zero[of xa]
+  have "abs_infty_q (poly.coeff (of_fr x) xa) = 0" for xa 
+    using abs_infty_q_pos[of "poly.coeff (of_fr x) xa"] abs_le_zero[of xa]
     by auto
-  then have "poly.coeff (of_gf x) xa = 0" for xa
+  then have "poly.coeff (of_fr x) xa = 0" for xa
     by (auto simp add: abs_infty_q_definite)
   then show "x = 0" 
-    using leading_coeff_0_iff of_gf_eq_0_iff by blast
+    using leading_coeff_0_iff of_fr_eq_0_iff by blast
 qed
 
 
@@ -442,9 +442,9 @@ qed
 lemma abs_infty_poly_pos:
   "abs_infty_poly x \<ge> 0"
 proof (auto simp add: abs_infty_poly_def)
-  have f_ge_zero: "\<forall>xa. abs_infty_q (poly.coeff (of_gf x) xa) \<ge> 0"
+  have f_ge_zero: "\<forall>xa. abs_infty_q (poly.coeff (of_fr x) xa) \<ge> 0"
     by (auto simp add: abs_infty_q_pos)
-  then show " 0 \<le> (MAX xa. abs_infty_q (poly.coeff (of_gf x) xa))"
+  then show " 0 \<le> (MAX xa. abs_infty_q (poly.coeff (of_fr x) xa))"
     using all_impl_Max[OF f_ge_zero finite_Max] by auto
 qed
 
@@ -497,23 +497,23 @@ unfolding abs_infty_poly_def oops
 lemma abs_infty_poly_triangle_ineq:
   "abs_infty_poly (x+y) \<le> abs_infty_poly x + abs_infty_poly y"
 proof -
-  have "abs_infty_q (poly.coeff (of_gf x) xa + poly.coeff (of_gf y) xa) \<le> 
-        abs_infty_q (poly.coeff (of_gf x) xa) + abs_infty_q (poly.coeff (of_gf y) xa)"
+  have "abs_infty_q (poly.coeff (of_fr x) xa + poly.coeff (of_fr y) xa) \<le> 
+        abs_infty_q (poly.coeff (of_fr x) xa) + abs_infty_q (poly.coeff (of_fr y) xa)"
     for xa
-    using abs_infty_q_triangle_ineq[of "poly.coeff (of_gf x) xa" "poly.coeff (of_gf y) xa"]
+    using abs_infty_q_triangle_ineq[of "poly.coeff (of_fr x) xa" "poly.coeff (of_fr y) xa"]
     by auto
-  then have abs_q_triang: "\<forall>xa. abs_infty_q (poly.coeff (of_gf x) xa + poly.coeff (of_gf y) xa) \<le> 
-        abs_infty_q (poly.coeff (of_gf x) xa) + abs_infty_q (poly.coeff (of_gf y) xa)"
+  then have abs_q_triang: "\<forall>xa. abs_infty_q (poly.coeff (of_fr x) xa + poly.coeff (of_fr y) xa) \<le> 
+        abs_infty_q (poly.coeff (of_fr x) xa) + abs_infty_q (poly.coeff (of_fr y) xa)"
     by auto
-  have "(MAX xa. abs_infty_q (poly.coeff (of_gf x) xa + poly.coeff (of_gf y) xa))
-    \<le> (MAX xa. abs_infty_q (poly.coeff (of_gf x) xa) + abs_infty_q (poly.coeff (of_gf y) xa))"
+  have "(MAX xa. abs_infty_q (poly.coeff (of_fr x) xa + poly.coeff (of_fr y) xa))
+    \<le> (MAX xa. abs_infty_q (poly.coeff (of_fr x) xa) + abs_infty_q (poly.coeff (of_fr y) xa))"
     using Max_mono'[OF abs_q_triang finite_Max_sum finite_Max_sum'] by auto
-  also have "\<dots> \<le> (MAX xa. abs_infty_q (poly.coeff (of_gf x) xa)) +
-       (MAX xb. abs_infty_q (poly.coeff (of_gf y) xb))" 
+  also have "\<dots> \<le> (MAX xa. abs_infty_q (poly.coeff (of_fr x) xa)) +
+       (MAX xb. abs_infty_q (poly.coeff (of_fr y) xb))" 
     using Max_mono_plus[OF finite_Max[of x] finite_Max[of y]] by auto
-  finally have "(MAX xa. abs_infty_q (poly.coeff (of_gf x) xa + poly.coeff (of_gf y) xa))
-    \<le> (MAX xa. abs_infty_q (poly.coeff (of_gf x) xa)) +
-       (MAX xb. abs_infty_q (poly.coeff (of_gf y) xb))"
+  finally have "(MAX xa. abs_infty_q (poly.coeff (of_fr x) xa + poly.coeff (of_fr y) xa))
+    \<le> (MAX xa. abs_infty_q (poly.coeff (of_fr x) xa)) +
+       (MAX xb. abs_infty_q (poly.coeff (of_fr y) xb))"
     by auto
   then show ?thesis 
     by (auto simp add: abs_infty_poly_def)
