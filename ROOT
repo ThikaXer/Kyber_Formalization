@@ -1,12 +1,11 @@
 chapter AFP
 
 session "Kyber" (AFP) = HOL +
-  options [timeout = 600]
+  options [timeout = 600, document = "pdf", document_output = "generated"]
   sessions
     "HOL-Computational_Algebra"
     "Berlekamp_Zassenhaus" 
     "HOL-Analysis"
-    "HOL-Probability"
   theories
     Crypto_Scheme
   document_files

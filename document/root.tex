@@ -14,14 +14,15 @@
 
 \begin{document}
 
-\title{$\delta$-correctness proof of CRYSTAL-KYBER}
+\title{$\delta$-Correctness Proof of CRYSTAL-KYBER}
 \author{Katharina Kreuzer}
 \maketitle
 
 \begin{abstract}
 This article formalizes the specification and the algorithm of CRYSTAL-KYBER and verifies its $\delta$-correctness proof. 
+CRYSTAL-KYBER is a key encapsulation mechanism in lattice-based post-quantum cryptography. 
 
-CRYSTAL-KYBER is a cryptographic scheme (precisely a key encapsulation mechanism) which is a finalist of the third round of the NIST standardization process of post-quantum cryptography. 
+This entry formalizes the key generation, encryption and decryption algorithms and shows that the algorithm decodes correctly under a highly probable assumption ($\delta$-correctness).
 \end{abstract}
 
 
@@ -31,9 +32,31 @@ CRYSTAL-KYBER is a cryptographic scheme (precisely a key encapsulation mechanism
 \newpage
 \parindent 0pt\parskip 0.5ex
 
+\section{Introduction}
+CRYSTAL-KYBER is a cryptographic key encapsulation mechanism and one of the finalists of the third round in the NIST standardization project for post-quantum cryptography \cite{report3rdroundNIST}. That is, even with feasible quantum computers, Kyber is thought to be hard to crack. It was introduced in \cite{kyber} and its documentation can be found in \cite{KyberAS}.
+
+Kyber is based on algebraic lattices and the module-LWE (Learning with Errors) Problem. 
+Working over the quotient ring $R_q := \mathbb{Z}_q[x]/(x^{2^{n'}}+1)$ and vectors thereof, Kyber takes advantage of:
+\begin{itemize}
+\item properties both from polynomials and vectors
+\item cyclic properties of $\mathbb{Z}_q$ (where $q$ is a prime) 
+\item cyclic properties of the quotient ring
+\item the splitting of $x^{2^{n'}}+1$ as a reducible, cyclotomic polynomial over $\mathbb{Z}_q$
+\end{itemize}
+
+The algorithm in Kyber is quite simple:
+\begin{enumerate}
+\item Let Alice have a public key $A \in R_q^{k\times k}$ and a secret $s\in R_q^k$. Then she generates a second public key $t = Av + e$ using an error vector $e\in R_q^k$.
+\item Bob (who wants to send a message to Alice) takes Alice's public keys $A$ and $t$ as well as his secret key $r\in R_q^k$, the message $m\in\{0,1\}^{256}$ and two random errors $e_1\in R_q^k$ and $e_2\in R_q$. He then computes the values 
+$u = A^Tr + e_1$ and $v = t^r + e_2 + \lceil q/2\rfloor m$ and sends them to Alice.
+\item Knowing her secret $s$, Alice can recover the message $m$ from $u$ and $v$ By calculating $v-s^Tu$. Any eavesdropper however cannot distinguish the encoded message from random samples.
+\end{enumerate}
+In this work, we formalize the algorithms and verify the $\delta$-correctness of Kyber.
+
+\vspace{1cm}
 \input{session}
 
-\nocite{kyber}
+%\nocite{kyber}
 
 \bibliographystyle{abbrv}
 \bibliography{root}
