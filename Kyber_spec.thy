@@ -275,7 +275,7 @@ lemma to_qr_eq_iff [simp]:
   by transfer (auto simp: qr_rel_def)
 
 text \<open>Reduction modulo $x^n + 1$ is injective on polynomials of degree less than $n$
-  in particular, this means that \<open>card(FR(q^n)) = q^n\<close>. \<close>
+  in particular, this means that \<open>card(QR(q^n)) = q^n\<close>. \<close>
 lemma inj_on_to_qr:
   "inj_on
      (to_qr :: 'a :: qr_spec mod_ring poly \<Rightarrow> 'a qr)

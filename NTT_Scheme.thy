@@ -15,37 +15,38 @@ lemma Poly_strip_while:
 "Poly (strip_while ((=) 0) x) = Poly x"
 by (metis Poly_coeffs coeffs_Poly)
 
-(*
-lemma map_poly_map2_poly:
-"map_poly f (map2_poly g x y) = map2_poly (\<lambda>x y. f (g x y)) x y"
-proof -
-  have "Poly (map f
-       (strip_while ((=) 0) (map (\<lambda>(x,y). g x y) (zip (coeffs x) (coeffs y))))) =
-    Poly (map (\<lambda>(x, y). f (g x y)) (zip (coeffs x) (coeffs y)))"
-    apply (subst strip_while_map) apply (subst map_map)  oops
-  then show ?thesis
-    unfolding map2_poly_def map_poly_def unfolding coeffs_Poly by simp
-qed
-*)
-
 
 
 locale kyber_ntt = kyber_spec "TYPE('a :: qr_spec)" "TYPE('k::finite)" +
-fixes \<omega> :: "('a::qr_spec) mod_ring"
+fixes type_a :: "('a :: qr_spec) itself" 
+  and type_k :: "('k ::finite) itself" 
+  and \<omega> :: "('a::qr_spec) mod_ring"
   and \<mu> :: "'a mod_ring"
   and \<psi> :: "'a mod_ring"
   and \<psi>inv :: "'a mod_ring"
   and ninv :: "'a mod_ring"
-  and m :: int
+  and mult_factor :: int
 assumes
       omega_properties: "\<omega>^n = 1" "\<omega> \<noteq> 1" "(\<forall> m. \<omega>^m = 1 \<and> m\<noteq>0 \<longrightarrow> m \<ge> n)"
   and mu_properties: "\<mu> * \<omega> = 1" "\<mu> \<noteq> 1"
   and psi_properties: "\<psi>^2 = \<omega>" "\<psi>^n = -1"
   and psi_psiinv: "\<psi> * \<psi>inv = 1"
   and n_ninv: "(of_int_mod_ring n) * ninv = 1"
-  and q_split: "q = m * n + 1"
+  and q_split: "q = mult_factor * n + 1"
 begin
+text \<open>Some properties of the roots $\omega$ and $\psi$ and their inverses $\mu$ and $\psi_inv$.\<close>
+lemma mu_prop:
+  "(\<forall> m. \<mu>^m = 1 \<and> m\<noteq>0 \<longrightarrow> m \<ge> n)"
+by (metis mu_properties(1) mult.commute mult.right_neutral 
+  omega_properties(3) power_mult_distrib power_one)
 
+lemma mu_prop':
+assumes "\<mu>^m' = 1" "m'\<noteq>0" shows "m' \<ge> n"
+using mu_prop  assms by blast
+
+lemma omega_prop':
+assumes "\<omega>^m' = 1" "m'\<noteq>0" shows "m' \<ge> n"
+using omega_properties(3)  assms by blast
 
 lemma psi_props:
 shows "\<psi>^(2*n) = 1"
@@ -91,80 +92,42 @@ qed
 
 lemma psiinv_prop:
 shows "\<psi>inv^2 = \<mu>"
-
 proof -
   show "\<psi>inv^2 = \<mu>"
   by (metis (mono_tags, lifting) mu_properties(1) mult.commute 
     mult_cancel_right mult_cancel_right2 power_mult_distrib psi_properties(1) psi_psiinv)
 qed
 
-text \<open>map2 for polys\<close>
+lemma n_ninv':
+"ninv * (of_int_mod_ring n) = 1"
+using n_ninv 
+by (simp add: mult.commute)
+
+
+text \<open>The \<open>map2\<close> function for polynomials.\<close>
 definition map2_poly :: "('a mod_ring \<Rightarrow> 'a mod_ring \<Rightarrow> 'a mod_ring) \<Rightarrow> 
     'a mod_ring poly \<Rightarrow> 'a mod_ring poly \<Rightarrow> 'a mod_ring poly" where 
 "map2_poly f p1 p2 = 
   Poly (map2 f (map (poly.coeff p1) [0..<nat n]) (map (poly.coeff p2) [0..<nat n]))"
 
-text \<open>Definition of NTT on polynomials\<close>
-definition ntt_coeff_poly :: "'a qr \<Rightarrow> nat \<Rightarrow> 'a mod_ring" where
-  "ntt_coeff_poly g i = (\<Sum>j\<in>{0..<n}. (poly.coeff (of_qr g) j) * \<psi>^(j * (2*i+1)))"
-
-definition ntt_coeffs :: "'a qr \<Rightarrow> 'a mod_ring list" where
-  "ntt_coeffs g = map (ntt_coeff_poly g) [0..<n]"
-
-definition ntt_poly :: "'a qr \<Rightarrow> 'a qr" where
-"ntt_poly g = to_qr (Poly (ntt_coeffs g))"
-
-text \<open>Definition of inverse NTT on polynomials\<close>
-definition inv_ntt_coeff_poly :: "'a qr \<Rightarrow> nat \<Rightarrow> 'a mod_ring" where
-  "inv_ntt_coeff_poly g' i = ninv * 
-    (\<Sum>j\<in>{0..<nat n}. (poly.coeff (of_qr g') j) * \<psi>inv^(i*(2*j+1)))"
-
-definition inv_ntt_coeffs :: "'a qr \<Rightarrow> 'a mod_ring list" where
-  "inv_ntt_coeffs g' = map (ntt_coeff_poly g') [0..<nat n]"
-
-definition inv_ntt_poly :: "'a qr \<Rightarrow> 'a qr" where
-  "inv_ntt_poly g = to_qr (Poly (ntt_coeffs g))"
-
-
-text \<open>Have $7681 = 30*256 + 1$ and $3329 = 13 * 256 + 1$.\<close>
-interpretation kyber_ntt: ntt "nat q" "nat n" "nat m" \<omega> \<mu>
-proof (unfold_locales, goal_cases)
-  case 2
-  then show ?case  using q_gt_two by linarith
-next
-  case 3
-  then show ?case 
-    by (smt (verit, del_insts) int_nat_eq mult.commute nat_int_add 
-    nat_mult_distrib of_nat_1 q_gt_two q_split zadd_int_left)
-next
-  case 4
-  then show ?case using n_gt_1 by linarith
-qed (use CARD_a nat_int in \<open>auto simp add: omega_properties mu_properties\<close>)
-
-thm kyber_ntt.ntt_def
-thm kyber_ntt.ntt_correct
-thm kyber_ntt.inv_ntt_correct
-
-
-text \<open>Multiplication in of polynomials in $R_q$ is a negacyclic convolution.\<close>
-definition qr_mult_coeffs :: "'a qr \<Rightarrow> 'a qr \<Rightarrow> 'a qr" where
-  "qr_mult_coeffs f g = to_qr (map2_poly (*) (of_qr f) (of_qr g))"
-
-definition conv_sign :: "int \<Rightarrow> 'a mod_ring" where
-"conv_sign x = (if x mod 2 = 0 then 1 else -1)"
-
-definition negacycl_conv :: "'a qr \<Rightarrow> 'a qr \<Rightarrow> 'a qr" where
-"negacycl_conv f g = 
-  to_qr (Poly (map 
-  (\<lambda>i. \<Sum>j<n. conv_sign ((int i - int j) div n) *  
-    poly.coeff (of_qr f) j * poly.coeff (of_qr g) (nat ((int i - int j) mod n)))
-  [0..<n]))"
-
-lemma negacycl_conv_mod_qr_poly:
-"of_qr (negacycl_conv f g) mod qr_poly = of_qr (negacycl_conv f g)"
-unfolding negacycl_conv_def of_qr_to_qr by auto
-
-
+text \<open>Additional lemmas on polynomials.\<close>
+lemma Poly_map_coeff:
+assumes "degree f < num"
+shows "Poly (map (poly.coeff (f)) [0..<num]) = f"
+proof (subst poly_eq_iff, safe)
+  fix j
+  show "poly.coeff (Poly (map (poly.coeff f) [0..<num])) j = poly.coeff f j"
+  proof (cases "j<num")
+    case True
+    then show ?thesis
+    unfolding coeff_Poly by (subst nth_default_nth, auto)
+  next
+    case False
+    then have "j>degree f" using assms by auto
+    then show ?thesis unfolding coeff_Poly using False
+    by (simp add: coeff_eq_0 nth_default_beyond)
+  qed
+qed
 
 lemma map_upto_n_mod: 
 "(Poly (map f [0..<n]) mod qr_poly) = (Poly (map f [0..<n]) :: 'a mod_ring poly)"
@@ -186,16 +149,88 @@ proof -
   then show ?thesis by (subst coeff_eq_0, auto)
 qed
 
+text \<open>Definition of NTT on polynomials. 
+  In contrast to the ordinary NTT, we use a different exponent on the root of unity $\psi$.\<close>
+definition ntt_coeff_poly :: "'a qr \<Rightarrow> nat \<Rightarrow> 'a mod_ring" where
+  "ntt_coeff_poly g i = (\<Sum>j\<in>{0..<n}. (poly.coeff (of_qr g) j) * \<psi>^(j * (2*i+1)))"
+
+definition ntt_coeffs :: "'a qr \<Rightarrow> 'a mod_ring list" where
+  "ntt_coeffs g = map (ntt_coeff_poly g) [0..<n]"
+
+definition ntt_poly :: "'a qr \<Rightarrow> 'a qr" where
+"ntt_poly g = to_qr (Poly (ntt_coeffs g))"
+
+text \<open>Definition of inverse NTT on polynomials.
+  The inverse transformed is already scaled such that it is the true inverse of the NTT.\<close>
+definition inv_ntt_coeff_poly :: "'a qr \<Rightarrow> nat \<Rightarrow> 'a mod_ring" where
+  "inv_ntt_coeff_poly g' i = ninv * 
+    (\<Sum>j\<in>{0..<n}. (poly.coeff (of_qr g') j) * \<psi>inv^(i*(2*j+1)))"
+
+definition inv_ntt_coeffs :: "'a qr \<Rightarrow> 'a mod_ring list" where
+  "inv_ntt_coeffs g' = map (inv_ntt_coeff_poly g') [0..<n]"
+
+definition inv_ntt_poly :: "'a qr \<Rightarrow> 'a qr" where
+  "inv_ntt_poly g = to_qr (Poly (inv_ntt_coeffs g))"
+
+
+text \<open>Kyber is indeed in the NTT-domain with root of unity $\omega$.
+Note, that our ntt on polynomials uses a slightly different exponent.
+The root of unity $\omega$ defines an alternative NTT in Kyber.\<close>
+text \<open>Have $7681 = 30*256 + 1$ and $3329 = 13 * 256 + 1$.\<close>
+interpretation kyber_ntt: ntt "nat q" "nat n" "nat mult_factor" \<omega> \<mu>
+proof (unfold_locales, goal_cases)
+  case 2
+  then show ?case  using q_gt_two by linarith
+next
+  case 3
+  then show ?case 
+    by (smt (verit, del_insts) int_nat_eq mult.commute nat_int_add 
+    nat_mult_distrib of_nat_1 q_gt_two q_split zadd_int_left)
+next
+  case 4
+  then show ?case using n_gt_1 by linarith
+qed (use CARD_a nat_int in \<open>auto simp add: omega_properties mu_properties\<close>)
+
+
+text \<open>Multiplication in of polynomials in $R_q$ is a negacyclic convolution 
+(because we factored by $x^n + 1$, thus $x^n\equiv -1 \mod x^n+1$).
+This is the reason why we needed to adapt the exponent in the NTT.\<close>
+definition qr_mult_coeffs :: "'a qr \<Rightarrow> 'a qr \<Rightarrow> 'a qr" (infixl "\<star>" 70) where
+  "qr_mult_coeffs f g = to_qr (map2_poly (*) (of_qr f) (of_qr g))"
+ 
+
+text \<open>The definition of the exponentiation \<open>^\<close> only allows for natural exponents, 
+thus we need to cheat a bit by introducing \<open>conv_sign x\<close>$\equiv (-1)^x$.\<close>
+definition conv_sign :: "int \<Rightarrow> 'a mod_ring" where
+"conv_sign x = (if x mod 2 = 0 then 1 else -1)"
+
+text \<open>The definition of the negacyclic convolution.\<close>
+definition negacycl_conv :: "'a qr \<Rightarrow> 'a qr \<Rightarrow> 'a qr" where
+"negacycl_conv f g = 
+  to_qr (Poly (map 
+  (\<lambda>i. \<Sum>j<n. conv_sign ((int i - int j) div n) *  
+    poly.coeff (of_qr f) j * poly.coeff (of_qr g) (nat ((int i - int j) mod n)))
+  [0..<n]))"
+
+lemma negacycl_conv_mod_qr_poly:
+"of_qr (negacycl_conv f g) mod qr_poly = of_qr (negacycl_conv f g)"
+unfolding negacycl_conv_def of_qr_to_qr by auto
+
+
+text \<open>Representation of f modulo \<open>qr_poly\<close>.\<close>
 lemma mod_div_qr_poly:
 "(f :: 'a mod_ring poly) = (f mod qr_poly) + qr_poly * (f div qr_poly)"
 by simp
 
+text \<open>\<open>take_deg\<close> returns the first $n$ coefficients of a polynomial.\<close>
 definition take_deg :: "nat \<Rightarrow> ('b::zero) poly \<Rightarrow> 'b poly"  where
 "take_deg = (\<lambda>n. \<lambda>f. Poly (take n (coeffs f)))"
 
+text \<open>\<open>drop_deg\<close> returns the coefficients of a polynomial strarting from the $n$-th coefficient.\<close>
 definition drop_deg :: "nat \<Rightarrow> ('b::zero) poly \<Rightarrow> 'b poly"  where
 "drop_deg = (\<lambda>n. \<lambda>f. Poly (drop n (coeffs f)))"
 
+text \<open>\<open>take_deg\<close> and \<open>drop_deg\<close> return the modulo and divisor representants.\<close>
 lemma take_deg_monom_drop_deg:
 assumes "degree f \<ge> n"
 shows "(f :: 'a mod_ring poly) = take_deg n f + (Polynomial.monom 1 n) * drop_deg n f"
@@ -224,6 +259,7 @@ proof -
     by auto
 qed
 
+text \<open>Lemmas on the degrees of \<open>take_deg\<close> and \<open>drop_deg\<close>.\<close>
 lemma degree_drop_n:
 "degree (drop_deg n f) = degree f - n"
 unfolding drop_deg_def
@@ -240,6 +276,12 @@ unfolding take_deg_def
 by (metis coeff_Poly_eq deg_qr_n deg_qr_pos degree_0 leading_coeff_0_iff 
   nth_default_take of_nat_eq_iff)
 
+lemma deg_mult_of_qr:
+"degree (of_qr (f ::'a qr) * of_qr g) < 2 * n"
+by (metis add_less_mono deg_of_qr deg_qr_n degree_0 degree_mult_eq 
+  mult_2 mult_eq_0_iff nat_int_comparison(1))
+
+text \<open>Representation of a polynomial modulo \<open>qr_poly\<close> using \<open>take_deg\<close> and \<open>drop_deg\<close>.\<close>
 lemma mod_qr_poly:
 assumes "degree f \<ge> n" "degree f < 2*n"
 shows "(f :: 'a mod_ring poly) mod qr_poly = take_deg n f - drop_deg n f "
@@ -254,6 +296,7 @@ proof -
     by (subst split_mod_qr_poly[OF assms(1)], auto)
 qed
 
+text \<open>Coefficients of \<open>take_deg\<close>, \<open>drop_deg\<close> and the modulo representant.\<close>
 lemma coeff_take_deg:
 assumes "i<n"
 shows "poly.coeff (take_deg n f) i = poly.coeff (f::'a mod_ring poly) i"
@@ -274,12 +317,7 @@ apply (subst coeff_diff)
 apply (unfold coeff_take_deg[OF assms(3)] coeff_drop_deg[OF assms(3)])
 by auto
 
-declare [[show_types = false]]
-
-lemma deg_mult_of_qr:
-"degree (of_qr (f ::'a qr) * of_qr g) < 2 * n"
-by (metis add_less_mono deg_of_qr deg_qr_n degree_0 degree_mult_eq 
-  mult_2 mult_eq_0_iff nat_int_comparison(1))
+text \<open>More lemmas on the splitting of sums.\<close>
 
 lemma sum_leq_split:
 "(\<Sum>ia\<le>i+n. f ia) = (\<Sum>ia<n. f ia) + (\<Sum>ia\<in>{n..i+n}. f ia)"
@@ -307,7 +345,7 @@ shows "x div b = -1"
 using assms 
 by (smt (verit, ccfv_SIG) atLeastLessThan_iff div_minus_minus div_pos_neg_trivial)
 
-
+text \<open>A coefficient of polynomial multiplication is a coefficient of the negacyclic convolution.\<close>
 lemma coeff_conv:
 fixes f :: "'a qr"
 assumes "i<n" 
@@ -427,7 +465,7 @@ next
     by auto
 qed
 
-
+text \<open>Polynomial multiplication in $R_q$ is the negacyclic convolution.\<close>
 
 lemma mult_negacycl:
 "f * g = negacycl_conv f g"
@@ -455,22 +493,7 @@ proof -
     by (metis to_qr_of_qr)
 qed
 
-
-
-
-
-
-(*
-lemma coeff_mult_mod:
-"coeffs ((of_qr f * of_qr g) mod qr_poly) = 
- map (\<lambda>i. \<Sum>j<n. (-1)^((i - j) div n) *  coeffs (of_qr f)!j * coeffs (of_qr g)!((i-j) mod n))
-  [0..<n]"
-sorry
-
-lemma Poly_eq_Poly_mod_qr_poly:
-assumes "length xs \<le> n" "length ys \<le> n"
-shows "[Poly xs = Poly ys] (mod qr_poly) \<longleftrightarrow> (\<forall>i<n. xs ! i = ys ! i)"
-*)
+text \<open>Additional lemmas on \<open>ntt_coeffs\<close>.\<close>
 
 lemma length_ntt_coeffs:
 "length (ntt_coeffs f) \<le> n"
@@ -504,25 +527,7 @@ unfolding negacycl_conv_def of_qr_to_qr map_upto_n_mod coeff_Poly_eq
  nth_default_map[OF assms] by auto
 
 
-
-(* poly_eqI poly_eq_iff*)
-
-(*
-text \<open>zip only zips up to min (length xs, length ys)!\<close>
-
-lemma map2_poly_context:
-fixes p1 p2 :: "'a mod_ring poly"
-assumes "degree p1 <n" "degree p2 <n"
-shows "map2_poly f p1 p2 = Poly (map2 f (map (poly.coeff p1) [0..<n])
-   (map (poly.coeff p2) [0..<n]))"
-proof -
-  have "nth_default 0 (map2 f (coeffs p1) (coeffs p2)) na =
-    nth_default 0 (map2 f (map (poly.coeff p1) [0..<n]) (map (poly.coeff p2) [0..<n])) na" 
-  for na sorry
-  then show ?thesis unfolding map2_poly_def 
-    apply (intro poly_eqI) apply (subst coeff_Poly)+ by auto
-qed
-*)
+text \<open>Writing the convolution sign as a conditional if statement.\<close>
 lemma conv_sign_if:
 assumes "x<n" "y<n"
 shows "conv_sign ((int x - int y) div int n) = (if int x - int y < 0 then -1 else 1)"
@@ -540,7 +545,7 @@ next
   then show ?case by auto
 qed
 
-thm conv_sign_def
+text \<open>The convolution theorem on coefficients.\<close>
 
 lemma ntt_coeff_poly_mult:
 assumes "l<n"
@@ -695,6 +700,7 @@ shows "ntt_coeffs (f*g) !i = ntt_coeffs f! i * ntt_coeffs g ! i"
 unfolding ntt_coeffs_def using ntt_coeff_poly_mult[OF assms]
 by (simp add: assms)
 
+text \<open>Steps towards the convolution theorem.\<close>
 
 lemma nth_default_ntt_coeff_mult:
 "nth_default 0 (ntt_coeffs (f * g)) i =
@@ -731,9 +737,6 @@ apply (intro poly_eqI) apply (unfold coeff_Poly)
 using nth_default_ntt_coeff_mult[of f g] by auto
 
 
-value "[1,2,3::nat]!(length [1,2,3::nat]-1)"
-value "strip_while ((=)0) [0,1,2::nat,0]"
-
 text \<open>Convolution theorem for NTT\<close>
 lemma ntt_mult:
 "ntt_poly (f * g) = qr_mult_coeffs (ntt_poly f) (ntt_poly g)"
@@ -761,11 +764,289 @@ proof -
     by auto
 qed
 
-lemma ntt_poly_mult:
+text \<open>Correctness of NTT on polynomials.\<close>
+
+lemma inv_ntt_poly_correct:
+"inv_ntt_poly (ntt_poly f) = f"
+proof -
+  have rew_sum: "(\<Sum>j = 0..<n. nth_default 0 
+    (map (\<lambda>i. \<Sum>j = 0..<n. poly.coeff (of_qr f) j * \<psi> ^ (j * (2 * i + 1))) [0..<n])
+     j * \<psi>inv ^ (i * (2 * j + 1))) = 
+    (\<Sum>j = 0..<n. (\<Sum>j' = 0..<n. poly.coeff (of_qr f) j' * \<psi> ^ (j' * (2 * j + 1)))
+     * \<psi>inv ^ (i * (2 * j + 1)))" 
+    (is "(\<Sum>j = 0..<n. ?left j) = (\<Sum>j = 0..<n. ?right j)") for i
+  proof (subst sum.cong[of "{0..<n}" "{0..<n}" ?left ?right], goal_cases)
+    case (2 x)
+    then show ?case by (subst nth_default_map[of x n], auto)
+  qed auto
+  have  "(\<Sum>j = 0..<n. \<Sum>j' = 0..<n. poly.coeff (of_qr f) j' * 
+    \<psi> ^ (j' * (2 * j + 1)) * \<psi>inv ^ (i * (2 * j + 1))) = 
+    (of_int_mod_ring n) * poly.coeff (of_qr f) i" if "i<n" for i
+  proof -
+    have rew_psi: "\<psi> ^ (j * (2 * j' + 1)) * \<psi>inv ^ (i * (2 * j' + 1)) =
+      \<psi> ^ j * \<psi>inv ^ i * (\<psi> ^ (j * 2) * \<psi>inv ^ (i * 2)) ^ j'"
+      if "j'<n" "j<n" for j' j
+    by (smt (verit, ccfv_threshold) kyber_ntt.exp_rule mult.commute 
+      power_add power_mult power_one_right)
+    have "(\<Sum>j = 0..<n. \<Sum>j' = 0..<n. poly.coeff (of_qr f) j' * 
+        \<psi> ^ (j' * (2 * j + 1)) * \<psi>inv ^ (i * (2 * j + 1))) = 
+      (\<Sum>j' = 0..<n. poly.coeff (of_qr f) j' * \<psi>^j' * \<psi>inv^i *
+        (\<Sum>j = 0..<n. (\<psi> ^ (j' * 2) * \<psi>inv ^ (i * 2))^j))"
+    apply (subst sum_distrib_left, subst sum.swap)
+     proof (subst sum.cong[of "{0..<n}" "{0..<n}"
+      "(\<lambda>j. \<Sum>ia = 0..<n. poly.coeff (of_qr f) j * \<psi> ^ (j * (2 * ia + 1)) *
+           \<psi>inv ^ (i * (2 * ia + 1)))"
+      "(\<lambda>j. \<Sum>ia = 0..<n. poly.coeff (of_qr f) j * \<psi> ^ j * \<psi>inv ^ i *
+           (\<psi> ^ (j * 2) * \<psi>inv ^ (i * 2)) ^ ia)"], goal_cases)
+      case (2 j)
+      then show ?case proof (subst sum.cong[of "{0..<n}" "{0..<n}"
+      "(\<lambda>ia. poly.coeff (of_qr f) j * \<psi> ^ (j * (2 * ia + 1)) *
+        \<psi>inv ^ (i * (2 * ia + 1)))"
+      "(\<lambda>ia. poly.coeff (of_qr f) j * \<psi> ^ j * \<psi>inv ^ i *
+        (\<psi> ^ (j * 2) * \<psi>inv ^ (i * 2)) ^ ia)"], goal_cases)
+        case (2 j')
+        then show ?case using rew_psi[of j' j] by simp
+      qed auto
+    qed auto
+    also have "\<dots> = (\<Sum>j' = 0..<n. 
+      (if j' = i then poly.coeff (of_qr f) j' * \<psi>^j' * \<psi>inv^i * (of_int_mod_ring n) else 0))" 
+    proof (subst sum.cong[of "{0..<n}" "{0..<n}" 
+      "(\<lambda>j'. poly.coeff (of_qr f) j' * \<psi> ^ j' * \<psi>inv ^ i *
+        (\<Sum>j=0..<n. (\<psi> ^ (j' * 2) * \<psi>inv ^ (i * 2))^j))"
+      "(\<lambda>j'. (if j' = i then poly.coeff (of_qr f) j' * \<psi>^j' * \<psi>inv^i * 
+        (of_int_mod_ring n) else 0))"], goal_cases)
+      case (2 j')
+      then show ?case proof (cases "j' = i")
+        case True
+        then have "(\<Sum>j=0..<n. (\<psi> ^ (j' * 2) * \<psi>inv ^ (i * 2))^j) = of_int_mod_ring n"
+          unfolding True psi_inv_exp 
+          by (metis kyber_ntt.sum_rules(5) mult.right_neutral power_one sum.cong)
+        then show ?thesis using True by auto
+      next
+        case False
+        have not1: "\<psi> ^ (j' * 2) * \<psi>inv ^ (i * 2) \<noteq> 1"
+        proof -
+          have "\<omega>^j' * \<mu> ^i \<noteq> 1" 
+          proof (cases "j'<i")
+            case True
+            have *: "\<omega>^j' * \<mu> ^i = \<mu>^(i-j')" using True 
+            by (metis (no_types, lifting) le_add_diff_inverse less_or_eq_imp_le 
+              mult.assoc mult_cancel_right2 power_add power_mult psi_inv_exp 
+              psi_properties(1) psiinv_prop)
+            show ?thesis proof (unfold *, rule ccontr)
+              assume "\<not> \<mu> ^ (i - j') \<noteq> 1" 
+              then have 1: "\<mu> ^ (i - j') = 1" by auto
+              show False using mu_prop'[OF 1] \<open>j'\<noteq>i\<close>
+              using True less_imp_diff_less that diff_is_0_eq leD by blast
+            qed
+          next
+            case False
+            have 2: "\<omega>^j' * \<mu> ^i = \<omega>^(j'-i)" using False
+            by (smt (verit) Nat.add_diff_assoc ab_semigroup_mult_class.mult_ac(1) 
+              add_diff_cancel_left' left_right_inverse_power linorder_not_less 
+              mu_properties(1) mult.commute mult_numeral_1_right numeral_One power_add) 
+            show ?thesis proof (unfold 2, rule ccontr)
+              assume "\<not> \<omega> ^ (j' - i) \<noteq> 1" 
+              then have 1: "\<omega> ^ (j' - i) = 1" by auto
+              have "n > j' - i" using \<open>j' \<in> {0..<n}\<close> by auto
+              then show False using omega_prop'[OF 1] \<open>j'\<noteq>i\<close>
+              using False 
+              by (meson diff_is_0_eq leD order_le_imp_less_or_eq)
+            qed
+          qed
+          then show ?thesis
+          by (metis mult.commute power_mult psi_properties(1) psiinv_prop) 
+        qed
+        have "(1 - \<psi> ^ (j' * 2) * \<psi>inv ^ (i * 2)) * 
+          (\<Sum>j=0..<n. (\<psi> ^ (j' * 2) * \<psi>inv ^ (i * 2))^j) = 0"
+        proof (subst kyber_ntt.geo_sum, goal_cases)
+          case 1
+          then show ?case using not1 by auto
+        next
+          case 2
+          then show ?case 
+          by (metis (no_types, opaque_lifting) cancel_comm_monoid_add_class.diff_cancel 
+            mu_properties(1) mult.commute omega_properties(1) power_mult power_mult_distrib 
+            power_one psi_properties(1) psiinv_prop)
+        qed
+        then have "(\<Sum>j=0..<n. (\<psi> ^ (j' * 2) * \<psi>inv ^ (i * 2))^j) = 0" 
+          using not1 by auto
+        then show ?thesis using False by auto
+      qed
+    qed auto
+    also have "\<dots> = poly.coeff (of_qr f) i * \<psi>^i * \<psi>inv^i * (of_int_mod_ring n)"
+      by (subst sum.delta[of "{0..<n}" i], use \<open>i<n\<close> in auto)
+    also have "\<dots> = (of_int_mod_ring n) * poly.coeff (of_qr f) i"
+      by (simp add: psi_inv_exp)
+    finally show ?thesis by blast
+  qed
+  then have rew_coeff: "(map (\<lambda>i. ninv * (\<Sum>j = 0..<n. \<Sum>n = 0..<n.
+    poly.coeff (of_qr f) n * \<psi> ^ (n * (2 * j + 1)) * \<psi>inv ^ (i * (2 * j + 1)))) [0..<n]) = 
+    map (\<lambda>i. ninv * (of_int_mod_ring (int n) * poly.coeff (of_qr f) i)) [0..<n]"
+  unfolding map_eq_conv by auto
+  show ?thesis unfolding inv_ntt_poly_def ntt_poly_def inv_ntt_coeffs_def ntt_coeffs_def
+    inv_ntt_coeff_poly_def ntt_coeff_poly_def of_qr_to_qr map_upto_n_mod coeff_Poly
+    apply (subst rew_sum) 
+    apply (subst sum_distrib_right) 
+    apply (subst rew_coeff)
+    apply (subst mult.assoc[symmetric]) 
+    apply (subst n_ninv')
+    apply (subst mult_1)
+    apply (subst Poly_map_coeff)
+    subgoal using deg_of_qr deg_qr_n by fastforce
+    subgoal unfolding to_qr_of_qr by auto
+  done
+qed
+
+
+lemma ntt_inv_poly_correct:
+"ntt_poly (inv_ntt_poly f) = f"
+proof -
+  have rew_sum: "(\<Sum>j = 0..<n. nth_default 0 (map (\<lambda>i. ninv *
+    (\<Sum>j' = 0..<n. poly.coeff (of_qr f) j' * \<psi>inv ^ (i * (2 * j' + 1)))) [0..<n]) j *
+      \<psi> ^ (j * (2 * i + 1))) = 
+    (\<Sum>j = 0..<n. ninv * (\<Sum>j' = 0..<n. poly.coeff (of_qr f) j' * \<psi>inv ^ (j * (2 * j' + 1)))
+     * \<psi> ^ (j * (2 * i + 1)))" 
+    (is "(\<Sum>j = 0..<n. ?left j) = (\<Sum>j = 0..<n. ?right j)") for i
+  proof (subst sum.cong[of "{0..<n}" "{0..<n}" ?left ?right], goal_cases)
+    case (2 x)
+    then show ?case by (subst nth_default_map[of x n], auto)
+  qed auto
+  have  "(\<Sum>j = 0..<n. \<Sum>n = 0..<n. ninv * (poly.coeff (of_qr f) n *
+    \<psi>inv ^ (j * (2 * n + 1))) * \<psi> ^ (j * (2 * i + 1))) = 
+    ninv * (of_int_mod_ring (int n) * poly.coeff (of_qr f) i)" if "i<n" for i
+  proof -
+    have rew_psi: "\<psi>inv ^ (j' * (2 * j + 1)) * \<psi> ^ (j' * (2 * i + 1)) =
+      (\<psi>inv ^ (j * 2) * \<psi> ^ (i * 2)) ^ j'"
+      if "j'<n" "j<n" for j' j
+    proof -
+      have "\<psi>inv ^ (j' * (2 * j + 1)) * \<psi> ^ (j' * (2 * i + 1)) =
+        \<psi>inv ^ (j' * (2 * j)) * \<psi> ^ (j' * (2 * i)) * \<psi>inv ^ j'  * \<psi> ^ j' "
+      by (simp add: power_add)
+      also have "\<dots> = (\<psi>inv ^ (2 * j) * \<psi> ^ (2 * i))^ j'"
+      by (smt (verit, best) inv_psi_exp kyber_ntt.exp_rule mult.assoc 
+        mult.commute mult.right_neutral power_mult) 
+      also have "\<dots> = (\<psi>inv ^ (j * 2) * \<psi> ^ (i * 2)) ^ j'"
+      by (simp add: mult.commute) 
+      finally show ?thesis by blast
+    qed
+    have "(\<Sum>j = 0..<n. \<Sum>j' = 0..<n. ninv * (poly.coeff (of_qr f) j' *
+    \<psi>inv ^ (j * (2 * j' + 1))) * \<psi> ^ (j * (2 * i + 1))) = 
+      (\<Sum>j' = 0..<n. ninv * poly.coeff (of_qr f) j' * 
+        (\<Sum>j = 0..<n. (\<psi>inv ^ (j' * 2) * \<psi> ^ (i * 2))^j))"
+    apply (subst sum_distrib_left, subst sum.swap, unfold mult.assoc[symmetric])
+    proof (subst sum.cong[of "{0..<n}" "{0..<n}"
+      "(\<lambda>j. \<Sum>ia = 0..<n. ninv * poly.coeff (of_qr f) j * \<psi>inv ^ (ia * (2 * j + 1)) *
+           \<psi> ^ (ia * (2 * i + 1)))"
+      "(\<lambda>j. \<Sum>n = 0..<n. ninv * poly.coeff (of_qr f) j *
+           (\<psi>inv ^ (j * 2) * \<psi> ^ (i * 2)) ^ n)"], goal_cases)
+      case (2 j)
+      then show ?case 
+      proof (subst sum.cong[of "{0..<n}" "{0..<n}"
+      "(\<lambda>ia. ninv * poly.coeff (of_qr f) j * \<psi>inv ^ (ia * (2 * j + 1)) *
+        \<psi> ^ (ia * (2 * i + 1)))"
+      "(\<lambda>ia. ninv * poly.coeff (of_qr f) j *
+        (\<psi>inv ^ (j * 2) * \<psi> ^ (i * 2)) ^ ia)"], goal_cases)
+        case (2 j')
+        then show ?case using rew_psi[of j' j] by simp
+      qed auto
+    qed auto
+    also have "\<dots> = (\<Sum>j' = 0..<n. 
+      (if j' = i then ninv * poly.coeff (of_qr f) j' * 
+        \<psi>inv^j' * \<psi>^i * (of_int_mod_ring n) else 0))" 
+    (is "(\<Sum>j' = 0..<n. ?right j') = (\<Sum>j' = 0..<n. ?left j')")
+    proof (subst sum.cong[of "{0..<n}" "{0..<n}" "?right" "?left"], goal_cases)
+      case (2 j')
+      then show ?case proof (cases "j' = i")
+        case True
+        then have "(\<Sum>j=0..<n. (\<psi>inv ^ (j' * 2) * \<psi> ^ (i * 2))^j) = of_int_mod_ring n"
+          unfolding True psi_inv_exp 
+          by (metis kyber_ntt.sum_const mult.commute mult.right_neutral 
+          power_one psi_inv_exp sum.cong) 
+        then show ?thesis using True
+        by (simp add: inv_psi_exp)
+      next
+        case False
+        have not1: "\<psi>inv ^ (j' * 2) * \<psi> ^ (i * 2) \<noteq> 1"
+        proof -
+          have "\<mu>^j' * \<omega> ^i \<noteq> 1" 
+          proof (cases "j'<i")
+            case True
+            have *: "\<mu>^j' * \<omega> ^i = \<omega>^(i-j')" using True
+            by (smt (verit, best) add.commute kyber_ntt.omega_properties(1) 
+              le_add_diff_inverse left_right_inverse_power less_or_eq_imp_le 
+              mu_properties(1) mult.left_commute mult_cancel_right1 power_add)
+            show ?thesis proof (unfold *, rule ccontr)
+              assume "\<not> \<omega> ^ (i - j') \<noteq> 1" 
+              then have 1: "\<omega> ^ (i - j') = 1" by auto
+              show False using omega_prop'[OF 1] \<open>j'\<noteq>i\<close>
+              using True less_imp_diff_less that diff_is_0_eq leD by blast
+            qed
+          next
+            case False
+            have 2: "\<mu>^j' * \<omega> ^i = \<mu>^(j'-i)" using False
+            by (smt (verit) Nat.add_diff_assoc ab_semigroup_mult_class.mult_ac(1) 
+              add_diff_cancel_left' left_right_inverse_power linorder_not_less 
+              mu_properties(1) mult.commute mult_numeral_1_right numeral_One power_add) 
+            show ?thesis proof (unfold 2, rule ccontr)
+              assume "\<not> \<mu> ^ (j' - i) \<noteq> 1" 
+              then have 1: "\<mu> ^ (j' - i) = 1" by auto
+              have "n > j' - i" using \<open>j' \<in> {0..<n}\<close> by auto
+              then show False using mu_prop'[OF 1] \<open>j'\<noteq>i\<close>
+              using False 
+              by (meson diff_is_0_eq leD order_le_imp_less_or_eq)
+            qed
+          qed
+          then show ?thesis
+          by (metis mult.commute power_mult psi_properties(1) psiinv_prop) 
+        qed
+        have "(1 - \<psi>inv ^ (j' * 2) * \<psi> ^ (i * 2)) * 
+          (\<Sum>j=0..<n. (\<psi>inv ^ (j' * 2) * \<psi> ^ (i * 2))^j) = 0"
+        proof (subst kyber_ntt.geo_sum, goal_cases)
+          case 1
+          then show ?case using not1 by auto
+        next
+          case 2
+          then show ?case 
+          by (metis (no_types, opaque_lifting) cancel_comm_monoid_add_class.diff_cancel 
+            mu_properties(1) mult.commute omega_properties(1) power_mult power_mult_distrib 
+            power_one psi_properties(1) psiinv_prop)
+        qed
+        then have "(\<Sum>j=0..<n. (\<psi>inv ^ (j' * 2) * \<psi> ^ (i * 2))^j) = 0" 
+          using not1 by auto
+        then show ?thesis using False by auto
+      qed
+    qed auto
+    also have "\<dots> = ninv * poly.coeff (of_qr f) i * \<psi>inv^i * \<psi>^i * (of_int_mod_ring n)"
+      by (subst sum.delta[of "{0..<n}" i], use \<open>i<n\<close> in auto)
+    also have "\<dots> = ninv * ((of_int_mod_ring n) * poly.coeff (of_qr f) i)"
+      by (simp add: psi_inv_exp mult.commute)
+    finally show ?thesis by blast
+  qed
+  then have rew_coeff: "(map (\<lambda>i. \<Sum>j = 0..<n. \<Sum>n = 0..<n. ninv * (poly.coeff (of_qr f) n *
+    \<psi>inv ^ (j * (2 * n + 1))) * \<psi> ^ (j * (2 * i + 1))) [0..<n]) = 
+    map (\<lambda>i. ninv * (of_int_mod_ring (int n) * poly.coeff (of_qr f) i)) [0..<n]"
+  unfolding map_eq_conv by auto
+  show ?thesis unfolding inv_ntt_poly_def ntt_poly_def inv_ntt_coeffs_def ntt_coeffs_def
+    inv_ntt_coeff_poly_def ntt_coeff_poly_def of_qr_to_qr map_upto_n_mod coeff_Poly
+    apply (subst rew_sum)
+    apply (subst sum_distrib_left)
+    apply (subst sum_distrib_right) 
+    apply (subst rew_coeff)
+    apply (subst mult.assoc[symmetric]) 
+    apply (subst n_ninv')
+    apply (subst mult_1)
+    apply (subst Poly_map_coeff)
+    subgoal using deg_of_qr deg_qr_n by fastforce
+    subgoal unfolding to_qr_of_qr by auto
+  done
+qed
+
+text \<open>The multiplication of two polynomials can be computed by the NTT.\<close>
+
+lemma convolution_thm_ntt_poly:
   "f*g = inv_ntt_poly (qr_mult_coeffs (ntt_poly f) (ntt_poly g))"
-
-
-sorry
+unfolding ntt_mult[symmetric] inv_ntt_poly_correct by auto
 
 
 
