@@ -2,7 +2,7 @@ theory NTT_Scheme
 
 imports Crypto_Scheme
   Mod_Ring_Numeral
-  "../../Student_projects/number-theoretic-transformation/NTT"
+  "NTT"
 
 begin
 (*

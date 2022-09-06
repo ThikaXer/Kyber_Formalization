@@ -2,9 +2,36 @@ theory Check_Prime
 imports Main
   "HOL-Computational_Algebra.Primes"
   "HOL-Number_Theory.Eratosthenes"
+  "HOL-Library.Monad_Syntax"
+  "HOL-Library.Code_Target_Nat"
 begin
 
 text \<open>Checking for primality by testing all numbers smaller than \<open>p div 2\<close> as divisors.\<close>
+
+
+definition isPrime :: "int \<Rightarrow> bool" where
+"isPrime n = ((n > 1) \<and>
+    foldr (\<lambda>p r. p*p > n \<or> (n mod p \<noteq> 0 \<and> r))
+         (2#3#(map (\<lambda>i. 2*i+1) [2..n div 2])) True)"
+
+lemma "prime (7681::nat)" by eval
+
+lemma "isPrime 3329" by eval
+(* unfolding isPrime_def by auto  takes approx 20sec*)
+
+
+(* takes approx 1:05 min*)
+lemma "isPrime 7681" by eval
+(* unfolding isPrime_def by auto takes approx 1:05 min*)
+
+
+definition isPrime' :: "int \<Rightarrow> bool" where
+"isPrime' n = ((n > 1) \<and>
+    foldr (\<lambda>p r. p*p > n \<or> (n mod p \<noteq> 0 \<and> r))
+         (2#3#(concat (map (\<lambda>i. [6*i-1,6*i+1]) [1..n div 6]))) True)"
+
+lemma "isPrime' 3329"
+unfolding isPrime'_def apply auto sorry 
 
 function (sequential) prime_test ::"nat \<Rightarrow> nat \<Rightarrow> bool" where
 "prime_test 0 p = False" |
@@ -16,6 +43,26 @@ termination by lexicographic_order
 
 definition "check_prime p = prime_test (p div 2) p"
 
+
+lemma "prime (993319::nat)" sorry by eval
+lemma "check_prime 993319" sorry by eval
+lemma "isPrime 993319" sorry by eval
+
+lemma "prime (479001599::nat)" sorry by eval (*15 sec*)
+(*lemma "isPrime 479001599" sorry >2min*)
+lemma "check_prime 479001599" sorry by eval (* 5 sec*)
+
+(*works for up to 9 digits*)
+
+(*lemma "prime (2971215073::nat)" sorry >2:30 min *)
+(*lemma "check_prime 2971215073" sorry >2:30 min*)  
+
+lemma "prime (31636373::nat)" sorry by eval
+lemma "check_prime 31636373" sorry by eval
+(* lemma "isPrime 31636373"  by eval *)
+
+
+
 text \<open>For tricky simplification.\<close>
 lemma Suc_Suc:
   assumes "x>1" 
@@ -24,13 +71,18 @@ using assms by auto
 
 text \<open>Check the moduluses of Kyber for primeality.\<close>
 text \<open>This takes 2-3 min to run\<close>
+
+(*takes approx 15 sec*)
 lemma check_3329:
-  "check_prime (3329::nat)" unfolding check_prime_def 
+  "check_prime (3329::nat)" by eval
+(* unfolding check_prime_def sorry
 apply simp apply (subst Suc_Suc, simp, subst prime_test.simps(3), auto)+ 
 by (metis and_numerals(8) and_one_eq gr_zeroI numeral_2_eq_2 zero_neq_one)
+*)
 
+(* takes approx 33 sec *)
 lemma check_7681:
-  "check_prime (7681::nat)" unfolding check_prime_def 
+  "check_prime (7681::nat)" unfolding check_prime_def sorry
 apply simp apply (subst Suc_Suc, simp, subst prime_test.simps(3), auto)+ 
 by (metis and_numerals(8) and_one_eq gr_zeroI numeral_2_eq_2 zero_neq_one)
 

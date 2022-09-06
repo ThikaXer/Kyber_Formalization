@@ -8,6 +8,9 @@ session "Kyber" (AFP) = HOL +
     "HOL-Analysis"
   theories
     Crypto_Scheme
+    Kyber_Values
+    Crypto_Scheme_NTT
+    Kyber_NTT_Values
   document_files
     "root.bib"
     "root.tex"
