@@ -4,7 +4,7 @@ imports
   (* Check_Prime *)
   (* NTT_Scheme *)
 begin
-
+section \<open>Specification for Kyber\<close>
 typedef fin7681 = "{0..<7681::int}"
 morphisms fin7681_rep fin7681_abs
 by (rule_tac x = 0 in exI, simp)

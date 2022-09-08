@@ -2,14 +2,10 @@ theory NTT_Scheme
 
 imports Crypto_Scheme
   Mod_Ring_Numeral
-  "NTT"
+  "Number_Theoretic_Transform.NTT"
 
 begin
-(*
-interpretation ntt_crypto: ntt q
-*)
-
-
+section \<open>Number Theoretic Transform for Kyber\<close>
 
 lemma Poly_strip_while:
 "Poly (strip_while ((=) 0) x) = Poly x"

@@ -3,14 +3,17 @@ theory Powers3844
 imports Main Kyber_Values
 
 begin
+section \<open>Checking Powers of Root of Unity\<close>
+text \<open>In order to check, that $3844$ is indeed a root of unity, we need to calculate all powers 
+and show that they are not equal to one.\<close>
 fun fast_exp_7681 ::" int \<Rightarrow> nat \<Rightarrow> int" where
 "fast_exp_7681 x 0 = 1" |
 "fast_exp_7681 x (Suc e) = (x * (fast_exp_7681 x e)) mod 7681"
 
 lemma list_all_fast_exp_7681: 
 "list_all (\<lambda>l. fast_exp_7681 (3844::int) l \<noteq> 1) [1..<256]"
-apply (subst upt_conv_Cons, simp, subst list_all_simps(1), intro conjI, eval)+ 
-by force
+by (subst upt_conv_Cons, simp, subst list_all_simps(1), intro conjI, eval)+ 
+   force
 
 lemma fast_exp_7681_to_mod_ring: 
 "fast_exp_7681 x e = to_int_mod_ring ((of_int_mod_ring x :: fin7681 mod_ring)^e)"

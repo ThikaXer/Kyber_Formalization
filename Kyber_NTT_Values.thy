@@ -5,7 +5,7 @@ imports Kyber_Values
         Powers3844
 
 begin
-
+section \<open>Specification of Kyber with NTT\<close>
 text \<open>Calculations for NTT specifications\<close>
 
 lemma "3844 * 6584 = (1 :: fin7681 mod_ring)"

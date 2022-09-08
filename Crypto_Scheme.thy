@@ -5,7 +5,7 @@ imports Kyber_spec
         Abs_Qr
 
 begin
-section \<open>$\delta$-Correctness Proof of the Kyber Crypto Scheme\<close>
+section \<open>$(1-\delta)$-Correctness Proof of the Kyber Crypto Scheme\<close>
 context kyber_spec
 begin
 

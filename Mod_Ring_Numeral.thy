@@ -5,6 +5,7 @@ imports
   "HOL-Library.Numeral_Type"
 
 begin
+section \<open>Lemmas for Simplification of Modulo Equivalences\<close>
 lemma to_int_mod_ring_of_int [simp]:
   "to_int_mod_ring (of_int n :: 'a :: nontriv mod_ring) = n mod int CARD('a)"
   by transfer auto

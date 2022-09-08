@@ -15,6 +15,7 @@ For factoring out $x^n+1$, we define an equivalence relation on the polynomial r
 $\mathbb{Z}_q[x]$ via the modulo operation with modulus $x^n+1$.
 Finally, we build the quotient of the equivalence relation using the construction 
 \<open>quotient_type\<close>.\<close>
+text \<open>The module $\mathbb{Z}_q[x]/(x^n+1)$ was formalized with help from Manuel Eberl.\<close>
 
 text \<open>Modulo relation between two polynomials. \<close>
 lemma of_int_mod_ring_eq_0_iff:

@@ -4,6 +4,7 @@ imports Crypto_Scheme
         NTT_Scheme
 
 begin
+section \<open>Kyber Algorithm using NTT for Fast Multiplication\<close>
 context kyber_ntt
 begin
 definition mult_ntt:: "'a qr \<Rightarrow> 'a qr \<Rightarrow> 'a qr" (infixl "*\<^bsub>ntt\<^esub>" 70) where
@@ -66,7 +67,7 @@ lemma decrypt_ntt:
 "decrypt_ntt u v s du dv = decrypt u v s du dv"
 unfolding decrypt_ntt_def decrypt_def scalar_prod_ntt by auto
 
-text \<open>$\delta$ correctness for the refined algorithm\<close>
+text \<open>$(1-\delta)$-correctness for the refined algorithm\<close>
 
 lemma kyber_correct_ntt:
   fixes A s r e e1 e2 dt du dv ct cu cv t u v
